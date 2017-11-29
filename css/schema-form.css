@@ -1,0 +1,12 @@
+
+.msm-schema-field-widget .fieldset-legend {
+  text-transform: none!important;
+}
+.msm-schema-widget .form-item {
+  display: inline-block;
+  padding: 2px 10px 2px 8px;
+}
+
+.msm-schema-widget .form-item label {
+  padding-right: 0.3em;
+}

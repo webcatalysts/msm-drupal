@@ -1,0 +1,5 @@
+*.swp
+srv/node_modules
+srv/config.js
+srv/package-lock.json
+

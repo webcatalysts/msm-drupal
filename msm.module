@@ -1,0 +1,477 @@
+<?php
+
+/**
+ * @file
+ * msm.module
+ */
+
+
+/**
+ * Implements hook_menu()
+ */
+function msm_menu() {
+  $items = array();
+  $inc_path = drupal_get_path('module', 'msm') . '/includes';
+  $items['admin/structure/msm'] = array(
+    'title' => 'MongoDB Schema',
+    'description' => 'Manage and extend MongoDB schemas.',
+    'page callback' => 'msm_collection_list',
+    'access arguments' => array('administer msm'),
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'menu name' => 'management',
+  );
+  $items['admin/structure/msm/status'] = array(
+    'title' => 'API Status',
+    'description' => 'Check the status of the msm api service.',
+    'page callback' => 'msm_status_page',
+    'access arguments' => array('administer msm'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+  $items['admin/structure/msm/col'] = array(
+    'title' => 'Collections',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/structure/msm/col/create'] = array(
+    'title' => 'Create collection',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_create_form'),
+    'access arguments' => array('administer msm'),
+    'type' => MENU_LOCAL_ACTION,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+  );
+  $items['admin/structure/msm/col/%msm_collection'] = array(
+    'title callback' => 'msm_collection_title',
+    'title arguments' => array(4),
+    'page callback' => 'msm_collection_view',
+    'page arguments' => array(4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4),
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+  );
+  $items['admin/structure/msm/col/%msm_collection/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -100,
+  );
+  $items['admin/structure/msm/col/%msm_collection/map-reduce'] = array(
+    'title' => 'Map Reduce',
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'mapReduce'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_mapreduce_form', 4),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'mapreduce_form.inc',
+    'weight' => 0
+  );
+  $items['admin/structure/msm/col/%msm_collection/pipeline'] = array(
+    'title' => 'Pipeline',
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'pipeline'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_pipeline_form', 4),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'pipeline_form.inc',
+    'weight' => 0
+  );
+  $items['admin/structure/msm/col/%msm_collection/custom'] = array(
+    'title' => 'Custom Eval',
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'eval'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_eval_form', 4),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'eval_form.inc',
+    'weight' => 0
+  );
+  $items['admin/structure/msm/col/%msm_collection/schema'] = array(
+    'title' => 'Schema',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_schema_form', 4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'schema'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'schema_form.inc',
+    'weight' => -80,
+  );
+  $items['admin/structure/msm/col/%msm_collection/settings'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_settings_form', 4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'settings'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => -90,
+  );
+  $items['admin/structure/msm/col/%msm_collection/process'] = array(
+    'title' => 'Process',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_process_form', 4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'process'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+  );
+  $items['admin/structure/msm/col/%msm_collection/endpoint'] = array(
+    'title' => 'Endpoint',
+    'page callback' => 'msm_collection_endpoint',
+    'page arguments' => array(4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'endpoint'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => 10,
+  );
+  $items['admin/structure/msm/col/%msm_collection/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_delete_form', 4),
+    'access arguments' => array('administer msm'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => 100,
+  );
+  $items['admin/structure/msm/db'] = array(
+    'title' => 'Databases',
+    'description' => 'Manage the available databases.',
+    'page callback' => 'msm_database_list',
+    'access arguments' => array('administer msm'),
+    'file path' => $inc_path,
+    'file' => 'database.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/structure/msm/db/add'] = array(
+    'title' => 'Add database',
+    'description' => 'Add a new database to MSM',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_database_add_form'),
+    'access arguments' => array('administer msm'),
+    'type' => MENU_LOCAL_ACTION,
+    'file path' => $inc_path,
+    'file' => 'database.inc',
+    'menu name' => 'management',
+  );
+  $items['admin/structure/msm/db/enable/%'] = array(
+    'title' => 'Enable database',
+    'page callback' => 'msm_database_enable',
+    'page arguments' => array(5),
+    'access arguments' => array('administer msm'),
+    'file path' => $inc_path,
+    'file' => 'database.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/structure/msm/db/%msm_database'] = array(
+    'title callback' => 'msm_database_title',
+    'title arguments' => array(4, 'edit'),
+    'page callback' => 'msm_database_view',
+    'page arguments' => array(4),
+    'access arguments' => array('administer msm'),
+    'file path' => $inc_path,
+    'file' => 'database.inc',
+  );
+  $items['admin/structure/msm/db/%msm_database/view'] = array(
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'title' => 'View',
+  );
+  $items['admin/structure/msm/db/%msm_database/disable'] = array(
+      'title' => 'Disable database',
+      'page callback' => 'msm_database_disable',
+      'page arguments' => array(4),
+      'access arguments' => array('administer msm'),
+      'file path' => $inc_path,
+      'file' => 'database.inc',
+      'type' => MENU_CALLBACK,
+  );
+  $items['admin/structure/msm/db/%msm_database/delete'] = array(
+    'type' => MENU_LOCAL_TASK,
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_database_delete_form', 4),
+    'access arguments' => array('administer msm'),
+    'file path' => $inc_path,
+    'file' => 'database.inc',
+  );
+  $items['admin/structure/msm/db/%msm_database/analyze-schema/%'] = array(
+    'type' => MENU_CALLBACK,
+    'title' => 'Analyze Collection Schema',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_database_analyze_schema_form', 4, 6),
+    'access arguments' => array('administer msm'),
+    'file path' => $inc_path,
+    'file' => 'database.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function msm_theme() {
+  return array(
+    'msm_schema_table' => array(
+      'variables' => array('schema' => array(), 'flatten' => TRUE),
+      'file' => 'msm.theme.inc',
+    ),
+    'msm_project_schema_table' => array(
+      'file' => 'msm.theme.inc',
+      'render element' => 'form',
+    ),
+    'msm_group_schema_table' => array(
+      'file' => 'msm.theme.inc',
+      'render element' => 'form',
+    ),
+    'msm_mapreduce_schema_table' => array(
+      'file' => 'msm.theme.inc',
+      'render element' => 'form',
+    ),
+    'msm_finalize_schema_table' => array(
+      'file' => 'msm.theme.inc',
+      'render element' => 'form',
+    ),
+  );
+}
+
+function msm_database_load($id) {
+  $result = msm_request(sprintf('database/%s', check_plain($id)));
+  return empty($result) ? FALSE : $result;
+}
+
+function msm_collection_load($id) {
+  $result = msm_request(sprintf('collection/%s', check_plain($id)));
+  return empty($result['_id']) ? FALSE : $result;
+}
+
+#function &msm_connection() {
+#  $con =& drupal_static(__FUNCTION__);
+#  if (!isset($db)) {
+#    $con = new MongoDB\Driver\Manager(variable_get('msm_server', 'mongodb://127.0.0.1'));
+#  }
+#  return $con;
+#}
+
+#function msm_db() {
+#  return variable_get('msm_db', 'msm');
+#}
+
+#function msm_query($db, $collection, array $query) {
+#  return msm_connection()->executeQuery(sprintf('%s.%s', $db, $collection), new MongoDB\Driver\Query($query));
+#}
+
+#function msm_command($db, array $command) {
+#  return msm_connection()->executeCommand($db, new MongoDB\Driver\Command($command));
+#}
+
+#function msm_load_single($db, $collection, $id) {
+#  $result = msm_query($db, $collection, ['_id' => $id]);
+#  return $result->hasNext() ? $result->getNext() : FALSE;
+#}
+
+#function msm_databases() {
+#}
+
+function msm_request($path) {
+  $store = &drupal_static(__FUNCTION__);
+  if (!isset($store)) {
+    $store = array();
+  }
+  if (!isset($store[$path])) {
+    $result = file_get_contents(msm_url($path));
+    $json = json_decode($result, TRUE);
+    if ($json === NULL) {
+      throw new Exception(t('MSM request failed to decode JSON from: @path', array('@path' => $path)));
+    }
+    $store[$path] = $json;
+  }
+  return $store[$path];
+}
+
+function msm_url($path) {
+  if (strpos($path, '/') !== 0) $path = '/' . $path;
+  return variable_get('msm_host', 'http://127.0.0.1:3000') . $path;
+}
+
+function msm_post($path, array $data) {
+  $ch = curl_init();
+  $data_string = json_encode($data);
+  curl_setopt($ch, CURLOPT_URL, msm_url($path));
+  curl_setopt($ch, CURLOPT_POST, 1);
+  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type: application/json',
+    'Content-Length: ' . strlen($data_string))
+  );
+  //curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+  $result = curl_exec($ch);
+  $json = json_decode($result, TRUE);
+  if ($json === NULL) {
+    throw new Exception('MSM post failed to decode JSON from: @path', $path);
+  }
+  return $json;
+}
+
+function msm_status_page() {
+  $build = array();
+  $result = msm_request('status');
+  $header = array(t('Service'), t('Status'));
+  $rows = array();
+  if ($result === NULL) {
+    $rows[0] = array(t('API Server'), t('Not responding'));
+    $rows[1] = array(t('Database Server'), t('Unknown'));
+  }
+  elseif($result['ok'] !== 1) {
+    $rows[0] = array(t('API Server'), t('Not responding'));
+    $rows[1] = array(t('Database Server'), t('Unknown'));
+  }
+  else {
+    $rows[0] = array(t('Express API Server'), t('Running'));
+    $rows[1] = array(t('MongoDB Database Server'), t('Running'));
+    $rows[0][] = variable_get('msm_host', 'http://127.0.0.1:3000');
+    $rows[1][] = sprintf('%s (version %s)', $result['host'], $result['version']);
+    $header[] = t('Host');
+    dsm($result);
+    $build['database'] = array(
+      '#prefix' => sprintf('<h3>%s</h3>', t('Database Info')),
+      '#theme' => 'table',
+      '#rows' => array(
+        array('Host:', $result['host']),
+        array('Version:', $result['version']),
+        array('Process:', $result['process']),
+        array('Pid:', $result['pid']),
+        array('Uptime:', $result['uptime']),
+        array('Local time:', $result['localTime'])
+      ),
+    );
+    $build['connections'] = array(
+      '#prefix' => sprintf('<h3>%s</h3>', t('Database Connections')),
+      '#theme' => 'table',
+      '#rows' => array(
+        array('Current:', $result['connections']['current']),
+        array('Available:', $result['connections']['available']),
+        array('Total created:', $result['connections']['totalCreated']),
+      ),
+    );
+  }
+  $build['status'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+    '#weight' => -100,
+  );
+  return $build;
+}
+
+function msm_database_options() {
+  $options = &drupal_static(__FUNCTION__);
+  if (!isset($options)) {
+    $result = msm_request('databases');
+    $options = array();
+    foreach ($result AS $db) {
+      if ($db['enabled']) {
+        $options[$db['name']] = $db['name'];
+      }
+    }
+  }
+  return $options;
+}
+
+function msm_collection_access($collection, $op = null) {
+  if (!user_access('administer msm')) return FALSE;
+
+  if ($op === null) {
+    return !empty($collection['_id']);
+  }
+
+  if (isset($collection['schemaImported']) || empty($collection['type'])) {
+    switch ($op) {
+      case 'view':
+      case 'schema':
+      case 'delete':
+        return TRUE;
+      case 'endpoint':
+        return $collection['enabled'];
+      default: return FALSE;
+    }
+  }
+  switch ($op) {
+    case 'view':
+      // Nothing to view until enabled
+      return $collection['enabled'];
+    case 'map-reduce':
+    case 'mapReduce':
+      return $collection['type'] == 'mapReduce';
+    case 'pipeline':
+      return $collection['type'] == 'aggregation';
+    case 'eval':
+      return $collection['type'] == 'custom';
+    case 'schema':
+      if (!empty($collection['schemaImported'])) {
+        return TRUE;
+      }
+      switch ($collection['type']) {
+        case 'mapReduce': return !empty($collection['mapReduce']);
+        case 'aggregation': return !empty($collection['pipeline']);
+        case 'custom': return !empty($collection['eval']);
+        default: throw new Exception(t('Unknown collection type: %collection_type', array('%collection_type' => $collection['type'])));
+      }
+      break;
+    case 'settings':
+      return !empty($collection['schema']);
+    case 'endpoint':
+      return !empty($collection['schema']) && $collection['enabled'];
+  }
+  return FALSE;
+}
+
+function msm_collection_title($collection, $op = null) {
+  return t('Collection: @id', array('@id' => $collection['_id']));
+}
+
+define('MSM_SCHEMA_FLATTEN_GROUPS', 0x1);
+define('MSM_SCHEMA_FLATTEN_FIELDS', 0x2);
+define('MSM_SCHEMA_FLATTEN_ALL', MSM_SCHEMA_FLATTEN_GROUPS + MSM_SCHEMA_FLATTEN_FIELDS);
+
+function msm_schema_flatten_fields($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS, $ns = null) {
+  $result = array();
+  foreach ($schema AS $f => $v) {
+    $cns = $ns ? sprintf('%s.%s', $ns, $f) : $f;
+    if ($ns) {
+      $v['parent'] = $ns;
+    }
+    if (in_array($v['type'], array('group', 'array'))) {
+      if ($types & MSM_SCHEMA_FLATTEN_GROUPS || ($v['type'] == 'array' && !empty($v['children']))) {
+        $result[$cns] = $v;
+      }
+      if (!empty($v['children'])) {
+        $result = array_merge(msm_schema_flatten_fields($v['children'], $types, $cns), $result);
+      }
+    }
+    elseif ($types & MSM_SCHEMA_FLATTEN_FIELDS) {
+      $result[$cns] = $v;
+    }
+  }
+  ksort($result);
+  return $result;
+}
+
+function msm_schema_field_options($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS) {
+  $fields = msm_schema_flatten_fields($schema, $types);
+  $options = array();
+  foreach ($fields AS $f => $v) {
+    $options[$f] = $f;
+  }
+  return $options;
+}

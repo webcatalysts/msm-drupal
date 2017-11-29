@@ -1,0 +1,3 @@
+name = MongoDB Schema Manager (msm)
+description = Do awesome stuff with MongoDB.
+core = 7.x

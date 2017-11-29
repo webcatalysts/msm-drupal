@@ -1,0 +1,29 @@
+{
+    "name": "msm",
+    "description": "MongoDB Schema Manager",
+    "version": "0.0.1",
+    "main": "server.js",
+    "private": true,
+    "dependencies": {
+        "express": "3.x",
+        "fs": "0.0.1-security",
+        "mongodb": "^2.2.33",
+        "promise": "^8.0.1",
+        "variety-cli": "^0.4.3"
+    },
+    "devDependencies": {
+        "chai": "^4.1.2",
+        "chai-http": "^3.0.0",
+        "mocha": "^4.0.1",
+        "nodemon": "^1.12.1"
+    },
+    "engine": {
+        "node": "*",
+        "npm": "*"
+    },
+    "scripts": {
+        "start": "node server.js",
+        "start-dev": "./node_modules/.bin/nodemon server.js",
+        "test": "IP=0.0.0.0 PORT=3030 mocha --timeout 5000 tests/*_test.js"
+    }
+}
