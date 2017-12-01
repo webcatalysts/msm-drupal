@@ -282,47 +282,6 @@ function msm_collection_load($id) {
 #function msm_databases() {
 #}
 
-function msm_request($path) {
-  $store = &drupal_static(__FUNCTION__);
-  if (!isset($store)) {
-    $store = array();
-  }
-  if (!isset($store[$path])) {
-    $result = file_get_contents(msm_url($path));
-    $json = json_decode($result, TRUE);
-    if ($json === NULL) {
-      throw new Exception(t('MSM request failed to decode JSON from: @path', array('@path' => $path)));
-    }
-    $store[$path] = $json;
-  }
-  return $store[$path];
-}
-
-function msm_url($path) {
-  if (strpos($path, '/') !== 0) $path = '/' . $path;
-  return variable_get('msm_host', 'http://127.0.0.1:3000') . $path;
-}
-
-function msm_post($path, array $data) {
-  $ch = curl_init();
-  $data_string = json_encode($data);
-  curl_setopt($ch, CURLOPT_URL, msm_url($path));
-  curl_setopt($ch, CURLOPT_POST, 1);
-  curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-    'Content-Type: application/json',
-    'Content-Length: ' . strlen($data_string))
-  );
-  //curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-  curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-  $result = curl_exec($ch);
-  $json = json_decode($result, TRUE);
-  if ($json === NULL) {
-    throw new Exception('MSM post failed to decode JSON from: @path', $path);
-  }
-  return $json;
-}
-
 function msm_status_page() {
   $build = array();
   $result = msm_request('status');
@@ -465,6 +424,15 @@ function msm_schema_flatten_fields($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS, 
   }
   ksort($result);
   return $result;
+}
+
+function msm_schema_expand_fields(array $fields) {
+  $schema = array();
+  foreach ($fields AS $f => $fi) {
+    $parents = explode('.', implode('.children.', explode('.', $f)));
+    drupal_array_set_nested_value($schema, $parents, $fi, TRUE);
+  }
+  return $schema;
 }
 
 function msm_schema_field_options($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS) {

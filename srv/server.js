@@ -110,10 +110,6 @@ app.get('/collection/:id', function (req, res) {
     });
 });
 
-app.get('/collection/:id/process', function (req, res) {
-    res.send({ok: 0});
-});
-
 app.post('/collection/:id/update', function (req, res) {
     collectionProvider.save(req.params.id, req.body, function (err, result) {
         if (err) res.send({ok: 0, error: err});
@@ -135,11 +131,81 @@ app.get('collection/:id/reset', function (req, res) {
     });
 });
 
-app.get('/endpoint/:id', function (req, res) {
-    res.send({ok: 0});
+app.get('/collection/:id/process', function (req, res) {
+    collectionProvider.findById(req.params.id, function (err, doc) {
+        if (err || !doc) res.send({ok: 0, error: err});
+        else {
+            var CollectionProcess = require('./collectionprocess');
+            var instance = new CollectionProcess.createInstance(doc, databaseWrapper, databaseProvider, collectionProvider);
+            CollectionProcess.processInstance(instance, function (err, result) {
+                if (err) res.send({ok: 0, error: err});
+                else {
+                    res.send(result);
+                }
+            });
+        }
+    });
 });
 
-app.get('/process/:id', function (req, res) {
+app.post('/collection/:id/query', function (req, res) {
+    collectionProvider.findById(req.params.id, function (err, doc) {
+        if (err || !doc) res.send({ok: 0, error: err});
+        else {
+            if (!doc.enabled) {
+                res.send({ok: 0, error: 'Collection not enabled.'});
+            }
+            databaseWrapper.connect(function (err, con) {
+                var params = {
+                    query: req.body.query || {},
+                    project: req.body.project || false,
+                    skip: req.body.skip || false,
+                    limit: req.body.limit || false,
+                    batchSize: req.body.batchSize || false,
+                    sort: req.body.sort || false,
+                }
+
+                var db = con.db(doc.database);
+                var collection = db.collection(doc.collection);
+
+                var result = {
+                    schema: doc.schema
+                }
+
+                if (doc.preExecute) {
+                    eval('var preExecute = function (document, collection, params, result) { ' + doc.preExecute + ' }');
+                    preExecute(doc, collection, params, result);
+                }
+
+                var cursor = con.db(doc.database).collection(doc.collection).find(params.query);
+
+                if (params.project) {
+                    cursor.project(params.project);
+                }
+                if (params.skip) {
+                    cursor.skip(params.skip);
+                }
+                if (params.limit) {
+                    cursor.limit(params.limit);
+                }
+                if (params.batchSize) {
+                    cursor.batchSize(params.batchSize);
+                }
+                if (params.sort) {
+                    cursor.sort(params.sort);
+                }
+                cursor.toArray(function (err, docs) {
+                    if (doc.postExecute) {
+                        eval('var postExecute = function (document, collection, params, result) { ' + doc.postExecute + ' }');
+                        postExecute(doc, collection, params, result);
+                    }
+                    con.close();
+                    result.results = docs;
+                    result.ok = 1;
+                    res.send(result);
+                });
+            });
+        }
+    });
 });
 
 app.get('/status', function(req, res) {

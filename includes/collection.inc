@@ -398,8 +398,7 @@ function msm_collection_settings_form_submit($form, &$form_state) {
 }
 
 function msm_collection_endpoint(array $collection) {
-  dsm($collection);
-  $result = msm_request(sprintf('endpoint/%s', $collection['_id']));
+  $result = msm_post(sprintf('collection/%s/query', $collection['_id']), ['limit' => 10]);
   dsm($result);
   return '';
 }

@@ -24,15 +24,17 @@ function msm_pipeline_form($form, &$form_state, array $collection) {
   $source = msm_request(sprintf('collection/%s', $collection['source']));
   $schema = $source['schema'];
 
-  foreach ($pipeline AS $i => $stage) {
+  foreach ($pipeline AS $i => &$stage) {
     $stage['index'] = $i;
-    if (isset($stage['schema'])) {
-      $schema = $stage['schema'];
+    if (empty($stage['schema'])) {
+      $stage['schema'] = $i ? $pipeline[$i-1]['schema'] : $schema;
     }
-    $form['pipeline'][$i] = msm_pipeline_stage_widget($stage, $schema, $collection, $ajax);
+    $form['pipeline'][$i] = msm_pipeline_stage_widget($stage, $collection, $ajax);
+    #$form['pipeline'][$i] = array(
+    #);
   }
 
-  $form_state['schema'] = $schema;
+  $form_state['schema'] = $stage['schema'];
 
   $form['actions'] = array(
     '#type' => 'actions',
@@ -65,6 +67,7 @@ function msm_pipeline_form($form, &$form_state, array $collection) {
 }
 
 function msm_pipeline_form_ajax($form, &$form_state) {
+    dsm($form_state);
   return $form;
 }
 
@@ -88,6 +91,7 @@ function msm_pipeline_form_validate(&$form, &$form_state) {
 }
 
 function msm_pipeline_form_submit($form, &$form_state) {
+  #dsm($form_state);
   $collectionId = $form['#collection']['_id'];
   $result = msm_post(sprintf('collection/%s/update', $collectionId), array(
     '$set' => array(
@@ -114,7 +118,7 @@ function msm_pipeline_stage_type_options() {
   );
 }
 
-function msm_pipeline_stage_widget($stage, array $schema, array $collection, array $ajax) {
+function msm_pipeline_stage_widget($stage, array $collection, array $ajax) {
   $html_id = drupal_html_id(__FUNCTION__);
   $widget = array(
     '#tree' => TRUE,
@@ -122,11 +126,16 @@ function msm_pipeline_stage_widget($stage, array $schema, array $collection, arr
     '#title' => t('#@num $@type', array('@num' => $stage['index']+1, '@type' => $stage['type'])),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
-    '#attributes' => array('id' => $html_id),
+    '#prefix' => sprintf('<div>%s', $html_id),
+    '#suffix' => '</div>',
   );
   $stageajax = array(
     'callback' => 'msm_pipeline_stage_widget_ajax',
     'wrapper' => $html_id,
+  );
+  $widget['schema'] = array(
+    '#type' => 'value',
+    '#value' => $stage['schema'],
   );
   $widget['type'] = array(
     '#type' => 'value',
@@ -137,14 +146,15 @@ function msm_pipeline_stage_widget($stage, array $schema, array $collection, arr
     '#title' => t('Remove stage'),
     '#ajax' => $ajax,
   );
-  $field_options = msm_schema_field_options($schema);
+  $field_options = msm_schema_field_options($stage['schema']);
   switch ($stage['type']) {
     case 'project':
       $stage += array('project' => array());
-      $widget['project'] = msm_pipeline_stage_project_widget($stage, $schema, $stageajax);
+      $widget['project'] = msm_pipeline_stage_project_widget($stage, $stageajax);
+      $widget['#element_validate'][] = 'msm_pipeline_stage_project_validate';
       break;
     case 'group':
-      $widget['group'] = msm_pipeline_stage_group_widget($stage, $schema);
+      $widget['group'] = msm_pipeline_stage_group_widget($stage, $stageajax);
       break;
     case 'limit':
       $stage += array('limit' => 100);
@@ -295,7 +305,7 @@ function msm_pipeline_sort_validate(&$widget, &$form_state, &$form) {
   $value['sort'] = $value['sort']['value'];
 }
 
-function msm_pipeline_stage_project_widget($stage, $schema, $stageajax) {
+function msm_pipeline_stage_project_widget($stage, $stageajax) {
   $html_id = drupal_html_id(__FUNCTION__);
   $widget = array(
     '#prefix' => sprintf('<div id="%s">', $html_id),
@@ -306,14 +316,14 @@ function msm_pipeline_stage_project_widget($stage, $schema, $stageajax) {
     'wrapper' => $html_id,
   );
 
-  $widget['schema'] = array(
+  $widget['fields'] = array(
     '#theme' => 'msm_project_schema_table',
     '#tree' => TRUE,
   );
 
-  $fields = msm_schema_flatten_fields($schema, MSM_SCHEMA_FLATTEN_ALL);
+  $fields = msm_schema_flatten_fields($stage['schema'], MSM_SCHEMA_FLATTEN_ALL);
 
-  $parent_options = msm_schema_field_options($schema, MSM_SCHEMA_FLATTEN_GROUPS);
+  $parent_options = msm_schema_field_options($stage['schema'], MSM_SCHEMA_FLATTEN_GROUPS);
   foreach ($fields AS $f => $fi) {
     $parts = explode('.', $f);
     $fi += array(
@@ -321,16 +331,16 @@ function msm_pipeline_stage_project_widget($stage, $schema, $stageajax) {
       'parent' => implode('.', $parts),
       'weight' => 0,
     );
-    $widget['schema'][$f] = array(
+    $widget['fields'][$f] = array(
       '#tree' => TRUE,
     );
-    $widget['schema'][$f]['localName'] = array(
+    $widget['fields'][$f]['localName'] = array(
       '#type' => 'textfield',
       '#title' => t('Local name'),
       '#title_display' => 'invisible',
       '#default_value' => $fi['localName'],
     );
-    $widget['schema'][$f]['parent'] = array(
+    $widget['fields'][$f]['parent'] = array(
       '#type' => 'select',
       '#title' => t('Parent'),
       '#options' => array(t('-- root --')) + $parent_options,
@@ -339,16 +349,16 @@ function msm_pipeline_stage_project_widget($stage, $schema, $stageajax) {
     );
 
     $weights = range(-100, 100);
-    $widget['schema'][$f]['weight'] = array(
+    $widget['fields'][$f]['weight'] = array(
       '#type' => 'select',
       '#title' => t('Weight'),
       '#options' => array_combine($weights, $weights),
       '#title_display' => 'invisible',
       '#default_value' => $fi['weight'],
     );
-    $widget['schema'][$f]['actions'] = array(
+    $widget['fields'][$f]['actions'] = array(
     );
-    $widget['schema'][$f]['actions']['remove'] = array(
+    $widget['fields'][$f]['actions']['remove'] = array(
       '#type' => 'checkbox',
       '#title' => t('Remove field'),
       '#ajax' => $ajax,
@@ -367,14 +377,14 @@ function msm_pipeline_stage_project_widget($stage, $schema, $stageajax) {
   $widget['add_field']['parent'] = array(
     '#type' => 'select',
     '#title' => t('Parent'),
-    '#options' => array(t('-- root --')) + msm_schema_field_options($schema, MSM_SCHEMA_FLATTEN_GROUPS),
+    '#options' => array(t('-- root --')) + msm_schema_field_options($stage['schema'], MSM_SCHEMA_FLATTEN_GROUPS),
   );
   $widget['add_field']['button'] = array(
     '#type' => 'button',
     '#value' => t('Add field'),
     '#ajax' => $stageajax,
   );
-  $widget['#element_validate'][] = 'msm_pipeline_stage_project_widget_validate';
+  #$widget['#element_validate'][] = 'msm_pipeline_stage_project_widget_validate';
   return $widget;
 }
 
@@ -384,26 +394,30 @@ function msm_pipeline_stage_project_widget_ajax($form, &$form_state) {
   array_pop($parents);
   array_pop($parents);
   array_pop($parents);
+  dsm($form_state);
   return drupal_array_get_nested_value($form, $parents);
 }
 
-function msm_pipeline_stage_project_widget_validate(&$element, &$form_state) {
-  $ele = $form_state['triggering_element'];
-  $parents = $ele['#parents'];
-  array_pop($parents);
-  array_pop($parents);
-  $field = array_pop($parents);
+function msm_pipeline_stage_project_validate(&$element, &$form_state) {
+  $parents = $element['#parents'];
   $value = &drupal_array_get_nested_value($form_state['values'], $parents);
-  foreach ($value AS &$item) {
-    unset($item['project']['actions']);
+  $flat_schema = msm_schema_flatten_fields($value['schema'], MSM_SCHEMA_FLATTEN_ALL);
+  foreach ($value['project']['fields'] AS &$item) {
     unset($item['actions']);
   }
-  if ($ele['#type'] == 'checkbox' && $ele['#title'] == t('Remove field')) {
-    unset($value[$field]);
+  $tele = $form_state['triggering_element'];
+  if ($tele['#type'] == 'checkbox' && $tele['#title'] == t('Remove field')) {
+    $parents = $tele['#parents'];
+    array_pop($parents);
+    array_pop($parents);
+    $field = array_pop($parents);
+    unset($element['project']['fields'][$field]);
+    unset($value['project']['fields'][$field]);
+    unset($flat_schema[$field]);
   }
-  #$value['schema'] = array_merge_recursive($value['project'], $value['schema']);
-  #unset($value['project']);
-  #unset($value['add_field']);
+  $merged = array_merge_recursive($value['project']['fields'], $flat_schema);
+  $value['schema'] = msm_schema_expand_fields($merged);
+  unset($value['project']);
 }
 
 function msm_pipeline_stage_group_widget($stage, $schema, $stageajax) {

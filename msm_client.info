@@ -1,0 +1,3 @@
+name = MSM Client
+description = Provides integration and helper functions for interacting with the msm module.
+core = 7.x
