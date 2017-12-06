@@ -62,24 +62,24 @@ function msm_database_view($db) {
       '#links' => array(),
       '#attributes' => array('class' => array('links', 'inline')),
     );
-    if ($col['enabled']) {
+    if (isset($col['schemaImported']) || isset($col['analyzingSchema'])) {
+      $actions['#links']['reset_schema'] = array(
+        'href' => sprintf('admin/structure/msm/col/%s/reset', $col['_id']),
+        'title' => t('Reset Schema'),
+      );
+    }
+    if (!empty($col['type']) || $col['enabled']) {
       $actions['#links']['manage_schema'] = array(
         'href' => sprintf('admin/structure/msm/col/%s/schema', $col['_id']),
         'title' => t('Manage Schema'),
       );
-      if (isset($col['schemaImported'])) {
-        $actions['#links']['reset_schema'] = array(
-          'href' => sprintf('admin/structure/msm/col/%s/reset', $col['_id']),
-          'title' => t('Reset Schema'),
-        );
-      }
       $actions['#links']['delete'] = array(
         'href' => sprintf('admin/structure/msm/col/%s/delete', $col['_id']),
         'title' => t('Delete'),
       );
     }
     else {
-      if (!isset($col['analyzingSchema'])) {
+      if (empty($col['type']) && !isset($col['analyzingSchema'])) {
         $actions['#links']['analyze_schema'] = array(
           'href' => sprintf('admin/structure/msm/db/%s/analyze-schema/%s', $db['name'], $col['collection']),
           'title' => t('Analyze & Import Schema'),
@@ -88,6 +88,7 @@ function msm_database_view($db) {
     }
     $rows[] = array(
       $col['name'],
+      empty($col['type']) ? t('Pre-existing') : ucfirst($col['type']),
       render($actions),
     );
   }
@@ -96,6 +97,7 @@ function msm_database_view($db) {
     '#theme' => 'table',
     '#header' => array(
       t('Collection name'),
+      t('Type'),
       t('Actions'),
     ),
     '#rows' => $rows,

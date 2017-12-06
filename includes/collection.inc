@@ -406,3 +406,27 @@ function msm_collection_endpoint(array $collection) {
 function msm_collection_process_form($form, &$form_state, array $collection) {
   return $form;
 }
+
+function msm_collection_reset_form($form, &$form_state, array $collection) {
+  $form['#collection'] = $collection;
+  return confirm_form($form,
+    t('Are you sure you want to reset the schema for @collection', array('@collection' => $collection['_id'])),
+    sprintf('admin/structure/msm/collection/%s', $collection['_id']),
+    t('This will remove the schema information.'),
+    t('Reset schema'),
+    t('Cancel')
+  );
+}
+
+function msm_collection_reset_form_submit($form, &$form_state) {
+  $collection = $form['#collection'];
+  $update = array(
+    '$set' => array('enabled' => false),
+    '$unset' => array('schema' => '', 'schemaImported' => '', 'analyzingSchema' => ''),
+  );
+  $result = msm_post(sprintf('collection/%s/update', $collection['_id']), $update);
+  if ($result['ok']) {
+    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/view', $collection['_id']);
+  }
+  else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
+}

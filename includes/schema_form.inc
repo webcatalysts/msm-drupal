@@ -7,10 +7,25 @@ function msm_schema_form($form, &$form_state, array $collection) {
   );
   $collection += array('type' => null);
   if (empty($form_state['values'])) {
-    $schema = !empty($collection['schema']) ? $collection['schema'] : array();
+    if (!empty($collection['schema'])) {
+      $schema = $collection['schema'];
+    }
+    elseif (!empty($collection['source'])) {
+      $source = msm_request(sprintf('collection/%s', $collection['source']));
+      $schema = $source['schema'];
+    }
+    else $schema = array();
   }
   else {
     $schema = $form_state['schema'];
+  }
+
+  if (empty($collection['type']) && empty($collection['schema'])) {
+    $form['analyze_schema'] = array(
+      '#type' => 'link',
+      '#title' => t('Analyze & Import Schema'),
+      '#href' => sprintf('admin/structure/msm/db/%s/analyze-schema/%s', $collection['database'], $collection['collection']),
+    );
   }
 
   $html_id = drupal_html_class(__FUNCTION__);

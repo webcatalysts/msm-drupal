@@ -101,6 +101,17 @@ function msm_menu() {
     'file' => 'schema_form.inc',
     'weight' => -80,
   );
+  $items['admin/structure/msm/col/%msm_collection/reset'] = array(
+    'title' => 'Reset',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_reset_form', 4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'reset'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => 15,
+  );
   $items['admin/structure/msm/col/%msm_collection/settings'] = array(
     'title' => 'Settings',
     'page callback' => 'drupal_get_form',
@@ -254,34 +265,6 @@ function msm_collection_load($id) {
   return empty($result['_id']) ? FALSE : $result;
 }
 
-#function &msm_connection() {
-#  $con =& drupal_static(__FUNCTION__);
-#  if (!isset($db)) {
-#    $con = new MongoDB\Driver\Manager(variable_get('msm_server', 'mongodb://127.0.0.1'));
-#  }
-#  return $con;
-#}
-
-#function msm_db() {
-#  return variable_get('msm_db', 'msm');
-#}
-
-#function msm_query($db, $collection, array $query) {
-#  return msm_connection()->executeQuery(sprintf('%s.%s', $db, $collection), new MongoDB\Driver\Query($query));
-#}
-
-#function msm_command($db, array $command) {
-#  return msm_connection()->executeCommand($db, new MongoDB\Driver\Command($command));
-#}
-
-#function msm_load_single($db, $collection, $id) {
-#  $result = msm_query($db, $collection, ['_id' => $id]);
-#  return $result->hasNext() ? $result->getNext() : FALSE;
-#}
-
-#function msm_databases() {
-#}
-
 function msm_status_page() {
   $build = array();
   $result = msm_request('status');
@@ -360,6 +343,8 @@ function msm_collection_access($collection, $op = null) {
       case 'schema':
       case 'delete':
         return TRUE;
+      case 'reset':
+        return $collection['enabled'] || isset($collection['analyzingSchema']);
       case 'endpoint':
         return $collection['enabled'];
       default: return FALSE;
@@ -376,6 +361,8 @@ function msm_collection_access($collection, $op = null) {
       return $collection['type'] == 'aggregation';
     case 'eval':
       return $collection['type'] == 'custom';
+    case 'reset':
+      return FALSE;
     case 'schema':
       if (!empty($collection['schemaImported'])) {
         return TRUE;

@@ -41,3 +41,6 @@ function msm_post($path, array $data) {
   return $json;
 }
 
+function msm_query($collection_id, array $options = array()) {
+  return msm_post(sprintf('collection/%s/query', $collection_id), $options);
+}
