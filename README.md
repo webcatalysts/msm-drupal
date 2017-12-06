@@ -46,8 +46,8 @@ From the command line, start the node.js service using either of the following:
 2. Install dependencies with
 > `npm install`
 
-3. Start the node.js serveri:
-> `npm start` or `npm start-dev`[^startdev]
+3. Start the node.js server:
+> `npm run start` or `npm run start-dev`[^startdev]
 
-[^startdev]: Uses `npm start-dev` to restart the service after detecting file changes.
+[^startdev]: Use `npm run start-dev` to have the service automatically restart after file changes are detected.
 
