@@ -4,6 +4,7 @@ var child = require('child-process-promise');
 var program = require('./node_modules/variety-cli/lib/program');
 var utils = require('./node_modules/variety-cli/lib/utils');
 var bson = require('bson');
+var parse = require('url-parse');
 
 var SchemaAnalysis = function(dbName, colName, databaseWrapper, collectionProvider) {
     this.databaseName = dbName;
@@ -13,7 +14,7 @@ var SchemaAnalysis = function(dbName, colName, databaseWrapper, collectionProvid
     this.collectionProvider = collectionProvider;
 }
 
-var analyzeSchema = function(schemaAnalysis, options = {}, callback) {
+var analyzeSchema = function(schemaAnalysis, dbURL, options = {}, callback) {
     var data = { "$set": {
         name: 'Pre-existing: ' + schemaAnalysis.collectionName,
         collection: schemaAnalysis.collectionName,
@@ -33,8 +34,27 @@ var analyzeSchema = function(schemaAnalysis, options = {}, callback) {
             resultsCollection: schemaCollection,
         }, options);
 
-        var spawnArgs = [schemaAnalysis.databaseName, '--eval='+utils.buildParams(schemaAnalysis.collectionName, options), './node_modules/variety/variety.js'];
+        var parsed = parse(dbURL, {});
 
+        var spawnArgs = [
+            schemaAnalysis.databaseName,
+            "--host=" + parsed.hostname,
+            "--port=" + parsed.port,
+        ];
+        if (parsed.username) {
+            spawnArgs.push("--username=" + parsed.username);
+        }
+        if (parsed.password) {
+            spawnArgs.push("--password=" + parsed.password);
+        }
+        if (parsed.pathname) {
+            spawnArgs.push("--authenticationDatabase=" + parsed.pathname.substr(1));
+        }
+        //spawnArgs.push('--eval="' + utils.buildParams(schemaAnalysis.collectionName, options) + '"');
+        spawnArgs.push('--eval=' + utils.buildParams(schemaAnalysis.collectionName, options).replace(/"/g, "'"));
+        spawnArgs.push('./node_modules/variety/variety.js');
+
+        console.log(spawnArgs);
         var promise = child.spawn('mongo', spawnArgs);
         var childProcess = promise.childProcess;
         console.log('[spawn] childProcess.pid: ', childProcess.pid);

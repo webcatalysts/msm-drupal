@@ -52,7 +52,7 @@ app.get('/database/:name/update', function(req, res) {
 app.get('/database/:db/analyze/:col', function(req, res) {
     var SchemaAnalyzer = require('./schemaanalyzer');
     var schemaAnalysis = new SchemaAnalyzer.SchemaAnalysis(req.params.db, req.params.col, databaseWrapper, collectionProvider);
-    SchemaAnalyzer.analyzeSchema(schemaAnalysis, {}, function(err, result) {
+    SchemaAnalyzer.analyzeSchema(schemaAnalysis, mongoURL, {}, function(err, result) {
         if (err) res.send(err);
         else res.send(result);
     });
@@ -62,7 +62,7 @@ app.post('/database/:db/analyze/:col', function(req, res) {
     var SchemaAnalyzer = require('./schemaanalyzer');
     var schemaAnalysis = new SchemaAnalyzer.SchemaAnalysis(req.params.db, req.params.col, databaseWrapper, collectionProvider);
     var options = { limit: 1*req.body.limit };
-    SchemaAnalyzer.analyzeSchema(schemaAnalysis, options, function(err, result) {
+    SchemaAnalyzer.analyzeSchema(schemaAnalysis, mongoURL, options, function(err, result) {
         if (err) res.send(err);
         else res.send(result);
     });

@@ -9,6 +9,7 @@
         "fs": "0.0.1-security",
         "mongodb": "^2.2.33",
         "promise": "^8.0.1",
+        "url-parse": "^1.2.0",
         "variety-cli": "^0.4.3"
     },
     "devDependencies": {
