@@ -202,6 +202,7 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
     '#title' => $name,
     '#tree' => TRUE,
     '#attributes' => array('class' => array('msm-schema-field-widget')),
+    '#weight' => $info['display']['weight'] === null ? 0 : $info['display']['weight'],
   );
   if ($editable) {
     $widget['remove'] = array(
@@ -217,6 +218,11 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
     );
   }
   else {
+    $widget['type_placehold'] = array(
+      '#type' => 'item',
+      '#title' => t('Type'),
+      '#markup' => $info['type'],
+    );
     $widget['type'] = array(
       '#type' => 'value',
       '#value' => $info['type'],
