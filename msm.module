@@ -231,6 +231,7 @@ function msm_menu() {
  * Implements hook_theme().
  */
 function msm_theme() {
+  $path = drupal_get_path('module', 'msm') . '/theme';
   return array(
     'msm_schema_table' => array(
       'variables' => array('schema' => array(), 'flatten' => TRUE),
@@ -251,6 +252,23 @@ function msm_theme() {
     'msm_finalize_schema_table' => array(
       'file' => 'msm.theme.inc',
       'render element' => 'form',
+    ),
+    'msm_variables_help' => array(
+      'file' => 'msm.theme.inc',
+      'variables' => array('items' => array(), 'title' => null),
+    ),
+    'msm_variables_help_item' => array(
+      'variables' => array('item' => array()),
+      'path' => $path,
+      'template' => 'msm-variables-help-item',
+    ),
+    'msm_schema_result_tree' => array(
+      'variables' => array('schema' => array(), 'result' => array()),
+      'file' => 'msm.theme.inc',
+    ),
+    'msm_schema_field_label' => array(
+      'variables' => array('field_name' => null, 'field_info' => array(), 'key' => 'title'),
+      'file' => 'msm.theme.inc',
     ),
   );
 }
@@ -397,6 +415,7 @@ function msm_schema_flatten_fields($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS, 
     if ($ns) {
       $v['parent'] = $ns;
     }
+    $v['parents'] = explode('.', $cns);
     if (in_array($v['type'], array('group', 'array'))) {
       if ($types & MSM_SCHEMA_FLATTEN_GROUPS || ($v['type'] == 'array' && !empty($v['children']))) {
         $result[$cns] = $v;
@@ -429,4 +448,23 @@ function msm_schema_field_options($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS) {
     $options[$f] = $f;
   }
   return $options;
+}
+
+function msm_text_format_after_build($element) {
+  $element['format']['#access'] = FALSE;
+  return $element;
+}
+
+function msm_text_format_validate(&$element, &$form_state) {
+  $parents = $element['#parents'];
+  if (!in_array('value', $parents)) {
+    $parents[] = 'value';
+  }
+  $exists = null;
+  $value = drupal_array_get_nested_value($form_state['values'], $parents, $exists);
+  if ($exists) {
+    if (empty($value)) $value = false;
+    array_pop($parents);
+    drupal_array_set_nested_value($form_state['values'], $parents, $value);
+  }
 }

@@ -180,6 +180,7 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
       'hidden' => null,
       'visible' => null,
     ),
+    'attributes' => null,
   );
   msm_schema_widget_progress_increment($progress, $name, !empty($info['operator']));
   msm_schema_widget_progress_increment($progress, $name, !empty($info['display']['title']));

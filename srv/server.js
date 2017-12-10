@@ -1,9 +1,11 @@
 var express = require('express'),
     app     = express(),
     config = require('./config'),
+    schema = require('./schema'),
     DatabaseWrapper = require('./databasewrapper').DatabaseWrapper,
     DatabaseProvider = require('./databaseprovider').DatabaseProvider,
     CollectionProvider = require('./collectionprovider').CollectionProvider;
+
 
 var port     = process.env.PORT || 3000,
     ip       = process.env.IP || '0.0.0.0';
@@ -131,18 +133,45 @@ app.get('collection/:id/reset', function (req, res) {
     });
 });
 
-app.get('/collection/:id/process', function (req, res) {
+// Update and process
+app.post('/collection/:id/process', function (req, res) {
+    console.log('Updating and processing collection: ', req.params.id);
     collectionProvider.findById(req.params.id, function (err, doc) {
-        if (err || !doc) res.send({ok: 0, error: err});
+        if (err || !doc) {
+            console.log('Unable to find or load collection: ', req.params.id);
+            res.send({ok: 0, error: err});
+        }
         else {
             var CollectionProcess = require('./collectionprocess');
             var instance = new CollectionProcess.createInstance(doc, databaseWrapper, databaseProvider, collectionProvider);
             CollectionProcess.processInstance(instance, function (err, result) {
                 if (err) res.send({ok: 0, error: err});
                 else {
-                    res.send(result);
+                    collectionProvider.findById(req.params.id, function (err, doc) {
+                        if (err || !doc) res.send({ok: 0, error: err});
+                        else {
+                            var CollectionProcess = require('./collectionprocess');
+                            var instance = new CollectionProcess.createInstance(doc, databaseWrapper, databaseProvider, collectionProvider);
+                            CollectionProcess.processInstance(instance, function (err, result) {
+                                if (err) res.send({ok: 0, error: err});
+                                else {
+                                    res.send(result);
+                                }
+                            });
+                        }
+                    });
                 }
             });
+        }
+    });
+});
+
+// Process only
+app.get('/collection/:id/process', function (req, res) {
+    collectionProvider.save(req.params.id, req.body, function (err, result) {
+        if (err) res.send({ok: 0, error: err});
+        else {
+            res.send(result);
         }
     });
 });
@@ -178,30 +207,52 @@ app.post('/collection/:id/query', function (req, res) {
 
                 var cursor = con.db(doc.database).collection(doc.collection).find(params.query);
 
-                if (params.project) {
-                    cursor.project(params.project);
-                }
-                if (params.skip) {
-                    cursor.skip(params.skip);
-                }
-                if (params.limit) {
-                    cursor.limit(params.limit);
-                }
-                if (params.batchSize) {
-                    cursor.batchSize(params.batchSize);
-                }
-                if (params.sort) {
-                    cursor.sort(params.sort);
-                }
-                cursor.toArray(function (err, docs) {
-                    if (doc.postExecute) {
-                        eval('var postExecute = function (document, collection, params, result) { ' + doc.postExecute + ' }');
-                        postExecute(doc, collection, params, result);
+                cursor.count(false, {}, function (err, count) {
+                    result.totalResults = count;
+                    if (count) {
+                        if (params.project) {
+                            cursor.project(params.project);
+                            result.schema = schema.projectSchema(params.project, result.schema);
+                        }
+                        if (params.skip) {
+                            cursor.skip(1*params.skip);
+                        }
+                        if (params.limit) {
+                            cursor.limit(1*params.limit);
+                        }
+                        if (params.batchSize) {
+                            cursor.batchSize(1*params.batchSize);
+                        }
+                        if (params.sort) {
+                            cursor.sort(params.sort);
+                        }
+                        cursor.toArray(function (err, docs) {
+                            if (err) {
+                                console.log(err);
+                                res.send({ok: 0, error: err});
+                            }
+                            else {
+                                if (doc.postExecute) {
+                                    eval('var postExecute = function (document, collection, params, result) { ' + doc.postExecute + ' }');
+                                    postExecute(doc, collection, params, result);
+                                }
+                                if (req.body.flatten) {
+                                    result.schema = schema.flattenSchemaFields(result.schema);
+                                }
+                                result.results = docs;
+                                result.numResults = docs.length;
+                                con.close();
+                                result.ok = 1;
+                                res.send(result);
+                            }
+                        });
                     }
-                    con.close();
-                    result.results = docs;
-                    result.ok = 1;
-                    res.send(result);
+                    else {
+                        result.results = [];
+                        con.close();
+                        result.ok = 1;
+                        res.send(result);
+                    }
                 });
             });
         }

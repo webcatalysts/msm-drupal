@@ -31,9 +31,14 @@ var ProcessCollection = function (instance, callback) {
     }
     instance.collectionProvider.findById(instance.collection.source, function (err, source) {
         instance.source = source;
-        handler(instance, function () {});
+        handler(instance, function (err, result) {
+            if (err) console.log('Error processing collection: ', err);
+            else {
+                console.log('Successfully processed collection: ', instance.collection._id);
+            }
+        });
     });
-    callback(null, { ok: 0 });
+    callback(null, { ok: 1 });
 }
 
 var ProcessMapReduce = function (instance, callback) {
@@ -51,7 +56,7 @@ var ProcessCustom = function (instance, callback) {
             var destinationCollectionName = instance.collection.collection;
             var destinationCollection = destinationDatabase.collection(destinationCollectionName);
         }
-        console.log('eval custom');
+        console.log('Processing custom eval collection: ', instance.collection._id);
         eval('var evalCustom = function () { ' + instance.collection.eval.code + ' };');
         evalCustom();
     });

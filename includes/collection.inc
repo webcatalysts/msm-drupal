@@ -398,9 +398,140 @@ function msm_collection_settings_form_submit($form, &$form_state) {
 }
 
 function msm_collection_endpoint(array $collection) {
-  $result = msm_post(sprintf('collection/%s/query', $collection['_id']), ['limit' => 10]);
+  return drupal_get_form('msm_collection_endpoint_form', $collection);
+}
+function msm_collection_endpoint_form($form, &$form_state, array $collection) {
+  $params = empty($form_state['values']['params']) ? array() : $form_state['values']['params'];
+  dsm($params);
+  $params += array(
+    'limit' => 1,
+    'skip' => 0,
+    'query' => null,
+    'project' => null,
+    'sort' => null,
+  );
+  dsm($params);
+  $result = msm_post(sprintf('collection/%s/query', $collection['_id']), $params);
   dsm($result);
-  return '';
+  $html_id = drupal_html_class(__FUNCTION__);
+  $form['#prefix'] = sprintf('<div id="%s">', $html_id);
+  $form['#suffix'] = '</div>';
+  $ajax = array(
+    'callback' => 'msm_collection_endpoint_form_ajax',
+    'wrapper' => $html_id,
+  );
+  $form['params'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Parameters'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#tree' => TRUE,
+  );
+  $form['params']['query'] = array(
+    '#type' => 'text_format',
+    '#format' => 'catalyst_js',
+    '#title' => t('Query'),
+    '#default_value' => $params['query'],
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
+  );
+  $form['params']['sort'] = array(
+    '#type' => 'text_format',
+    '#format' => 'catalyst_js',
+    '#title' => t('Sort'),
+    '#default_value' => $params['sort'],
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
+  );
+  $form['params']['project'] = array(
+    '#type' => 'text_format',
+    '#format' => 'catalyst_js',
+    '#title' => t('Project'),
+    '#default_value' => $params['project'],
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
+  );
+  $form['params']['skip'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Skip'),
+    '#default_value' => $params['skip'],
+  );
+  $form['params']['update'] = array(
+    '#type' => 'button',
+    '#value' => t('Run query'),
+    '#ajax' => $ajax,
+  );
+  if (!empty($result['results'][0])) {
+    $form['result'] = array(
+      '#markup' => theme('msm_schema_result_tree', array(
+        'schema' => $result['schema'],
+        'result' => $result['results'][0],
+      )),
+    );
+  }
+  else {
+    $form['empty'] = array(
+      '#markup' => sprintf('<p>%s</p>', t('No results were found that matched your search.')),
+    );
+  }
+  $form['total'] = array(
+    '#type' => 'item',
+    '#title' => t('Total documents:'),
+    '#markup' => $result['totalResults'],
+  );
+  $form['actions'] = array(
+    '#type' => 'actions',
+    '#attributes' => array('class' => array('clearfix')),
+  );
+  if (((int)$params['skip']) < ($result['totalResults']-1)) {
+    $form['actions']['next'] = array(
+      '#type' => 'button',
+      '#value' => t('Next'),
+      '#attributes' => array('style' => 'float:right;'),
+      '#ajax' => $ajax,
+    );
+  }
+  if ($params['skip']) {
+    $form['actions']['prev'] = array(
+      '#type' => 'button',
+      '#value' => t('Previous'),
+      '#ajax' => $ajax,
+    );
+  }
+  return $form;
+}
+
+function msm_collection_endpoint_form_validate(&$form, &$form_state) {
+  $params = $form_state['values']['params'];
+  $input = &$form_state['input']['params'];
+
+  $ele = $form_state['triggering_element'];
+  if ($ele['#parents'][0] == 'next') {
+    $params['skip'] = ((int)$params['skip'])+1;
+    $input['skip'] = $params['skip'];
+  }
+  elseif ($ele['#parents'][0] == 'prev') {
+    $params['skip'] = ((int)$params['skip'])-1;
+    $input['skip'] = $params['skip'];
+  }
+  $result = array();
+  foreach ($params AS $k => $v) {
+    if ($v && !empty($v) && $k != 'update') {
+      $result[$k] = $v;
+    }
+  }
+  foreach (array('project', 'sort', 'query') AS $k) {
+    if (!empty($result[$k])) {
+      if (!$result[$k] = json_decode($result[$k])) {
+        form_set_error("params][$k", t('Invalid JSON detected.'));
+      }
+    }
+  }
+  $form_state['values']['params'] = $result;
+}
+
+function msm_collection_endpoint_form_ajax($form, &$form_state) {
+  return $form;
 }
 
 function msm_collection_process_form($form, &$form_state, array $collection) {
