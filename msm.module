@@ -19,7 +19,6 @@ function msm_menu() {
     'access arguments' => array('administer msm'),
     'file path' => $inc_path,
     'file' => 'collection.inc',
-    'menu name' => 'management',
   );
   $items['admin/structure/msm/status'] = array(
     'title' => 'API Status',
@@ -43,6 +42,7 @@ function msm_menu() {
     'file' => 'collection.inc',
   );
   $items['admin/structure/msm/col/%msm_collection'] = array(
+  //  'title' => 'Collection',
     'title callback' => 'msm_collection_title',
     'title arguments' => array(4),
     'page callback' => 'msm_collection_view',
@@ -51,6 +51,7 @@ function msm_menu() {
     'access arguments' => array(4),
     'file path' => $inc_path,
     'file' => 'collection.inc',
+    'type' => MENU_CALLBACK,
   );
   $items['admin/structure/msm/col/%msm_collection/view'] = array(
     'title' => 'View',
@@ -121,13 +122,13 @@ function msm_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_schema_analyze_form', 4),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4),
+    'access arguments' => array(4, 'schema-analyze'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'collection.inc',
     'weight' => 10,
   );
-  $items['admin/structure/msm/col/%msm_collection/reset'] = array(
+  $items['admin/structure/msm/col/%msm_collection/schema/reset'] = array(
     'title' => 'Reset',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_reset_form', 4),
@@ -199,7 +200,6 @@ function msm_menu() {
     'type' => MENU_LOCAL_ACTION,
     'file path' => $inc_path,
     'file' => 'database.inc',
-    'menu name' => 'management',
   );
   $items['admin/structure/msm/db/enable/%'] = array(
     'title' => 'Enable database',
@@ -375,22 +375,32 @@ function msm_database_options() {
 }
 
 function msm_collection_access($collection, $op = null) {
+  $collection += array(
+    'type' => 'existing',
+    'published' => null,
+  );
   if (!user_access('administer msm')) return FALSE;
 
   if ($op === null) {
     return !empty($collection['_id']);
   }
 
-  if (isset($collection['schemaImported']) || empty($collection['type'])) {
+  if ($collection['type'] == 'existing') {
     switch ($op) {
       case 'view':
       case 'schema-view':
-      case 'schema-edit':
-      case 'schema-analyze':
-      case 'delete':
         return TRUE;
+      case 'delete':
+        return !$collection['published'];
+      case 'settings':
+      case 'schema-edit':
+      case 'endpoint':
+        return !empty($collection['schema']);
+      case 'schema-reset':
       case 'reset':
-        return $collection['enabled'] || isset($collection['analyzingSchema']);
+        return !empty($collection['schema']) && !$collection['published'];
+      case 'schema-analyze':
+        return empty($collection['schema']);
       case 'endpoint':
         return $collection['enabled'];
       default: return FALSE;
@@ -407,7 +417,6 @@ function msm_collection_access($collection, $op = null) {
       return $collection['type'] == 'aggregation';
     case 'eval':
       return $collection['type'] == 'custom';
-    case 'reset':
       return FALSE;
     case 'schema-view':
     case 'schema-edit':
@@ -479,6 +488,18 @@ function msm_schema_field_options($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS) {
   return $options;
 }
 
+/**
+ * Removes the formatter field from a text_format form element.
+ *
+ * Usage:
+ * @code
+ * $form['myvar'] = array(
+ *   '#type' => 'text_format',
+ *   '#format' => 'catalyst_js',
+ *   '#after_build' => array('msm_text_format_after_build')
+ * );
+ * @endcode
+ */
 function msm_text_format_after_build($element) {
   $element['format']['#access'] = FALSE;
   return $element;
@@ -496,4 +517,18 @@ function msm_text_format_validate(&$element, &$form_state) {
     array_pop($parents);
     drupal_array_set_nested_value($form_state['values'], $parents, $value);
   }
+}
+
+function msm_collection_options() {
+  $options = &drupal_static(__FUNCTION__);
+  if (!isset($options)) {
+    $options = array();
+    $result = msm_request('collections');
+    foreach ($result AS $col) {
+      if ($col['enabled']) {
+        $options[$col['_id']] = t('@db: @col', array('@db' => $col['database'], '@col' => $col['name']));
+      }
+    }
+  }
+  return $options;
 }

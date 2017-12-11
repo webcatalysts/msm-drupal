@@ -29,6 +29,21 @@ CollectionProvider.prototype.findAll = function(callback) {
     });
 }
 
+CollectionProvider.prototype.find = function (query) {
+    return new Promise(function (fulfill, reject) {
+        this.getCollection(function (err, col, db, con) {
+            if (err) reject(err);
+            else {
+                var cursor = col.find(query)
+                cursor.toArray()
+                    .then(fulfill)
+                    .catch(reject);
+                con.close();
+            }
+        });
+    }.bind(this)());
+}
+
 CollectionProvider.prototype.findByDatabase = function(dbName, callback) {
     var thisObj = this;
     this.getCollection(function(err, col, db, con) {

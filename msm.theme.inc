@@ -92,7 +92,12 @@ function theme_msm_variables_help($variables) {
 function theme_msm_schema_result_tree($variables) {
   $fields = msm_schema_flatten_fields($variables['schema'], MSM_SCHEMA_FLATTEN_ALL);
   $result = $variables['result'];
-  $header = array(t('Name'), t('Value'));
+  $header = array(t('Name'), t('Type'), t('Value'));
+  $display_usage = FALSE;
+  if (isset($fields['_id']['totalOccurrences'])) {
+    $display_usage = TRUE;
+    $header[] = sprintf('<span title="%s">%s</span>', t('Total Occurrences/Percent Container'), t('Usage'));
+  }
   foreach ($fields AS $field_name => $field_info) {
     $display = theme('msm_schema_field_label', array(
       'field_name' => $field_name,
@@ -103,14 +108,23 @@ function theme_msm_schema_result_tree($variables) {
       $display = '<span class="indent">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>' . $display;
     }
     if (in_array($field_info['type'], array('group', 'array'))) {
-      $rows[] = array(array('colspan' => 2, 'data' => sprintf('<strong>%s</strong>', $display)));
+      $display = sprintf('<strong>%s</strong>', $display);
+      if (!empty($field_info['display']['description'])) {
+        $display .= sprintf('&nbsp;-&nbsp;<em>%s</em>', $field_info['display']['description']);
+      }
+      $row = array(array('colspan' => 3, 'data' => $display));
     }
     else {
-      $rows[] = array(
+      $row = array(
         $display,
+        $field_info['type'],
         drupal_array_get_nested_value($result, $field_info['parents'])
       );
     }
+    if ($display_usage) {
+      $row[] = sprintf('%s%%', number_format($field_info['percentContaining']));
+    }
+    $rows[] = $row;
   }
   return theme('table', array('header' => $header, 'rows' => $rows));
 }

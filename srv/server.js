@@ -202,22 +202,20 @@ app.get('collection/:id/reset', function (req, res) {
 // Update and process
 app.post('/collection/:id/process', function (req, res) {
     console.log('Updating and processing collection: ', req.params.id);
-    collectionProvider.findById(req.params.id, function (err, doc) {
-        if (err || !doc) {
+    collectionProvider.findById(req.params.id, function (err, collection) {
+        if (err || !collection) {
             console.log('Unable to find or load collection: ', req.params.id);
             res.send({ok: 0, error: err});
         }
         else {
-            var CollectionProcess = require('./collectionprocess');
-            var instance = new CollectionProcess.createInstance(doc, databaseWrapper, databaseProvider, collectionProvider);
-            CollectionProcess.processInstance(instance, function (err, result) {
+            collectionProvider.save(collection._id, req.body, function (err, r) {
                 if (err) res.send({ok: 0, error: err});
                 else {
-                    collectionProvider.findById(req.params.id, function (err, doc) {
-                        if (err || !doc) res.send({ok: 0, error: err});
+                    collectionProvider.findById(collection._id, function (err, collection) {
+                        if (err || !collection) res.send({ok: 0, error: err});
                         else {
                             var CollectionProcess = require('./collectionprocess');
-                            var instance = new CollectionProcess.createInstance(doc, databaseWrapper, databaseProvider, collectionProvider);
+                            var instance = new CollectionProcess.createInstance(collection, databaseWrapper, databaseProvider, collectionProvider);
                             CollectionProcess.processInstance(instance, function (err, result) {
                                 if (err) res.send({ok: 0, error: err});
                                 else {
@@ -246,8 +244,8 @@ app.post('/collection/:id/query', function (req, res) {
     collectionProvider.findById(req.params.id, function (err, doc) {
         if (err || !doc) res.send({ok: 0, error: err});
         else {
-            if (!doc.enabled) {
-                res.send({ok: 0, error: 'Collection not enabled.'});
+            if (!doc.schema) {
+                res.send({ok: 0, error: 'Collection has no schema.' });
             }
             databaseWrapper.connect(function (err, con) {
                 var params = {

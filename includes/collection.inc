@@ -10,6 +10,7 @@ function msm_collection_list() {
       t('Name'),
       t('Database'),
       t('Collection'),
+      t('Type'),
       t('Status'),
       t('Actions'),
     ),
@@ -71,6 +72,7 @@ function msm_collection_list() {
       l($col['name'], sprintf('admin/structure/msm/col/%s', $col['_id'])),
       l($col['database'], sprintf('admin/structure/msm/db/%s', $col['database'])),
       $col['collection'],
+      empty($col['type']) ? 'n/a' : $col['type'],
       $col['enabled'] ? t('Enabled') : t('Disabled'),
       render($actions),
     );
@@ -125,8 +127,6 @@ function msm_collection_create_form($form, &$form_state) {
     'type' => null,
     'source' => null,
   );
-  dsm($form_state);
-  dsm($document);
   $form['name'] = array(
     '#title' => t('Name'),
     '#type' => 'textfield',
@@ -291,7 +291,6 @@ function msm_collection_delete_form($form, &$form_state, $collection) {
 
 function msm_collection_delete_form_submit($form, &$form_state) {
   $result = msm_request(sprintf('collection/%s/delete', $form['#collection']['_id']));
-  dsm($result);
   if ($result['ok']) {
     $form_state['redirect'] = 'admin/structure/msm/col';
   }
@@ -310,20 +309,6 @@ function msm_collection_exists() {
   return false;
 }
 
-function msm_collection_options() {
-  $options = &drupal_static(__FUNCTION__);
-  if (!isset($options)) {
-    $options = array();
-    $result = msm_request('collections');
-    foreach ($result AS $col) {
-      if ($col['enabled']) {
-        $options[$col['_id']] = t('@db: @col', array('@db' => $col['database'], '@col' => $col['name']));
-      }
-    }
-  }
-  return $options;
-}
-
 function msm_collection_settings_form($form, &$form_state, array $collection) {
   $collection = json_decode(json_encode($collection), TRUE);
   $collection += array(
@@ -331,6 +316,7 @@ function msm_collection_settings_form($form, &$form_state, array $collection) {
     'postProcess' => NULL,
     'preExecute' => NULL,
     'postExecute' => NULL,
+    'type' => 'existing',
   );
   $form['process'] = array(
     '#tree' => FALSE,
@@ -338,17 +324,22 @@ function msm_collection_settings_form($form, &$form_state, array $collection) {
     '#title' => t('Processing'),
     '#collapsible' => TRUE,
     '#collapsed' => empty($collection['preProcess']) && empty($collection['postProcess']),
+    '#access' => !in_array($collection['type'], array('custom', 'existing')),
   );
   $form['process']['preProcess'] = array(
     '#title' => t('Pre-process code'),
     '#type' => 'text_format',
     '#format' => 'catalyst_js',
     '#default_value' => $collection['preProcess'],
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
   );
   $form['process']['postProcess'] = array(
     '#title' => t('Post-process code'),
     '#type' => 'text_format',
     '#format' => 'catalyst_js',
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
     '#default_value' => $collection['postProcess'],
   );
   $form['execute'] = array(
@@ -362,12 +353,16 @@ function msm_collection_settings_form($form, &$form_state, array $collection) {
     '#title' => t('Pre-execute code'),
     '#type' => 'text_format',
     '#format' => 'catalyst_js',
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
     '#default_value' => $collection['preExecute'],
   );
   $form['execute']['postExecute'] = array(
     '#title' => t('Post-execute code'),
     '#type' => 'text_format',
     '#format' => 'catalyst_js',
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
     '#default_value' => $collection['postExecute'],
   );
   $form['enabled'] = array(
@@ -394,17 +389,15 @@ function msm_collection_settings_form_submit($form, &$form_state) {
   $values = $form_state['values'];
   $update = array('$set' => array('enabled' => (bool)$values['enabled']), '$unset' => array());
   $collectionId = $form['#collection']['_id'];
-  dsm($values);
   foreach ($fields AS $f) {
-    if (empty($values[$f]['value'])) {
+    if (empty($values[$f])) {
       $update['$unset'][$f] = "";
     }
-    else $update['$set'][$f] = $values[$f]['value'];
+    else $update['$set'][$f] = $values[$f];
   }
   if (empty($update['$unset'])) {
     unset($update['$unset']);
   }
-  dsm($collectionId);
   dsm($update);
   $result = msm_post(sprintf('collection/%s/update', $collectionId), $update);
   if ($result['ok']) {
@@ -418,7 +411,6 @@ function msm_collection_endpoint(array $collection) {
 }
 function msm_collection_endpoint_form($form, &$form_state, array $collection) {
   $params = empty($form_state['values']['params']) ? array() : $form_state['values']['params'];
-  dsm($params);
   $params += array(
     'limit' => 1,
     'skip' => 0,
@@ -426,7 +418,6 @@ function msm_collection_endpoint_form($form, &$form_state, array $collection) {
     'project' => null,
     'sort' => null,
   );
-  dsm($params);
   $result = msm_post(sprintf('collection/%s/query', $collection['_id']), $params);
   dsm($result);
   $html_id = drupal_html_class(__FUNCTION__);
@@ -573,13 +564,15 @@ function msm_collection_reset_form_submit($form, &$form_state) {
   );
   $result = msm_post(sprintf('collection/%s/update', $collection['_id']), $update);
   if ($result['ok']) {
-    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/view', $collection['_id']);
+    drupal_set_message(t('The schema is being reset. Refresh the page momentarily as necessary.'));
+    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema/analyze', $collection['_id']);
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
 }
 
 function msm_collection_schema_analyze_form($form, &$form_state, array $collection) {
   $result = msm_request(sprintf('collection/%s/count', $collection['_id']));
+  $form['#attributes'] = array('class' => array('clearfix'));
   if (!$result['ok']) {
     $form['error'] = array(
       '#markup' => t('Failed to retrieve record count from @db -> @collection', array(
@@ -622,4 +615,5 @@ function msm_collection_schema_analyze_form_submit($form, &$form_state) {
   $options = array('limit' => $form_state['values']['limit']);
   $result = msm_post(sprintf('collection/%s/analyze', $collection['_id']), $options);
   $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema/view', $collection['_id']);
+  drupal_set_message(t('The schema is being analyzed. Refresh the page momentarily as necessary.'));
 }

@@ -265,6 +265,8 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
     $widget['filter']['options'] = array(
       '#type' => 'text_format',
       '#format' => 'catalyst_js',
+      '#after_build' => array('msm_text_format_after_build'),
+      '#element_validate' => array('msm_text_format_validate'),
       '#title' => t('Filter options'),
       '#default_value' => "return {\n\n};",
     );
@@ -330,6 +332,8 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
       '#title' => t('Custom attributes (code)'),
       '#type' => 'text_format',
       '#format' => 'catalyst_js',
+      '#after_build' => array('msm_text_format_after_build'),
+      '#element_validate' => array('msm_text_format_validate'),
       '#default_value' => $info['attributes'],
     );
   }

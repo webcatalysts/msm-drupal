@@ -2,6 +2,9 @@
 
 
 function msm_eval_form($form, &$form_state, array $collection) {
+  $collection += array(
+    'dependencies' => array(),
+  );
   $source = msm_request(sprintf('collection/%s', $collection['source']));
   $form['actions'] = array(
     '#type' => 'actions',
@@ -26,9 +29,26 @@ function msm_eval_form($form, &$form_state, array $collection) {
     '#title' => t('Code'),
     '#type' => 'text_format',
     '#format' => 'catalyst_js',
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
     '#required' => TRUE,
     '#rows' => 20,
     '#default_value' => !empty($collection['eval']['code']) ? $collection['eval']['code'] : null,
+  );
+  $form['deps'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Dependencies (@count)', array('@count' => count($collection['dependencies']))),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $options = msm_collection_options();
+  if (isset($options[$collection['_id']])) {
+    unset($options[$collection['_id']]);
+  }
+  $form['deps']['dependencies'] = array(
+    '#type' => 'checkboxes',
+    '#options' => $options,
+    '#default_value' => $collection['dependencies'],
   );
   $form['#collection'] = $collection;
 
@@ -103,16 +123,19 @@ function msm_eval_form($form, &$form_state, array $collection) {
 
 function msm_eval_form_submit($form, &$form_state) {
   $collectionId = $form['#collection']['_id'];
-  $eval = $form_state['values']['eval'];
-  $eval['code'] = $eval['code']['value'];
   $ele = $form_state['triggering_element'];
   $path = $ele['#value'] == t('Save and Process') ? 'collection/%s/process' : 'collection/%s/update';
-  $result = msm_post(sprintf($path, $collectionId), array(
+  $update = array(
     '$set' => array(
-      'eval' => $eval,
+      'eval' => $form_state['values']['eval'],
     ),
-  ));
-  dsm($result);
+  );
+  if ($dependencies = array_filter($form_state['values']['dependencies'])) {
+    $update['$set']['dependencies'] = array_keys($dependencies);
+  }
+  else { $update['$unset'] = array('dependencies' => ''); }
+dsm($update);
+  $result = msm_post(sprintf($path, $collectionId), $update);
 
   if ($result['ok']) {
     $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema', $collectionId);

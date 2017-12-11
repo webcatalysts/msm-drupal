@@ -36,7 +36,7 @@ function msm_post($path, array $data) {
   $result = curl_exec($ch);
   $json = json_decode($result, TRUE);
   if ($json === NULL) {
-    throw new Exception('MSM post failed to decode JSON from: @path', $path);
+    throw new Exception(t('MSM post failed to decode JSON from: @path', array('@path' => $path)));
   }
   return $json;
 }

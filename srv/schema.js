@@ -174,6 +174,9 @@ var buildSchemaFromFields = function(fields) {
         }
         else { continue; }
 
+        value.totalOccurrences = field.totalOccurrences;
+        value.percentContaining = field.percentContaining;
+
         var fieldName = field['_id'].key;
 
         if (fieldName.match(/^_versionHash/) || fieldName.match(/^_changeHistory/)) {
