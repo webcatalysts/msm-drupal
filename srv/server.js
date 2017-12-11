@@ -112,6 +112,72 @@ app.get('/collection/:id', function (req, res) {
     });
 });
 
+app.get('/collection/:id/count', function (req, res) {
+    collectionProvider.findById(req.params.id, function (err, col) {
+        if (err) {
+            res.send({ok: 0, error: err});
+        }
+        else {
+            databaseWrapper.getCollection(col.database, col.collection, function (err, col, db, con) {
+                col.count({}, {}, function (err, count) {
+                    if (err) {
+                        res.send({ok: 0, error: err});
+                    }
+                    else {
+                        res.send({ok: 1, count: count});
+                    }
+                });
+            });
+        }
+    });
+});
+
+app.post('/collection/:id/count', function (req, res) {
+    var query = req.params.body.query || {};
+    var options = req.params.body.options || {};
+    collectionProvider.findById(req.params.id, function (err, col) {
+        if (err) {
+            res.send({ok: 0, error: err});
+        }
+        else {
+            databaseWrapper.getCollection(col.database, col.collection, function (err, col, db, con) {
+                col.count(query, options, function (err, count) {
+                    if (err) {
+                        res.send({ok: 0, error: err});
+                    }
+                    else {
+                        res.send({ok: 1, count: count});
+                    }
+                });
+            });
+        }
+    });
+});
+
+app.get('/collection/:id/analyze', function(req, res) {
+    collectionProvider.analyzeSchema(req.params.id, options)
+        .then(function (result) {
+            console.log('Finished analysing collection: ', req.params.id);
+        })
+        .catch(function (err) {
+            console.log(err);
+        });
+    res.send({ok: 1});
+});
+
+app.post('/collection/:id/analyze', function(req, res) {
+    var options = { limit: 1*req.body.limit };
+    collectionProvider.analyzeSchema(req.params.id, options)
+        .then(function (result) {
+            console.log('Finished analysing collection: ', req.params.id);
+        })
+        .catch(function (err) {
+            console.log(err);
+        });
+    res.send({ok: 1});
+});
+
+
 app.post('/collection/:id/update', function (req, res) {
     collectionProvider.save(req.params.id, req.body, function (err, result) {
         if (err) res.send({ok: 0, error: err});

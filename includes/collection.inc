@@ -41,7 +41,7 @@ function msm_collection_list() {
     }
     if (msm_collection_access($col, 'eval')) {
       $actions['#links']['eval'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/eval', $col['_id']),
+        'href' => sprintf('admin/structure/msm/col/%s/custom', $col['_id']),
         'title' => t('Eval'),
       );
     }
@@ -79,6 +79,22 @@ function msm_collection_list() {
 }
 
 function msm_collection_view(array $collection) {
+  if (!empty($collection['schema'])) {
+    $build['schema'] = array(
+      '#theme' => 'msm_schema_table',
+      '#schema' => $collection['schema'],
+      '#flatten' => TRUE,
+    );
+  }
+  else {
+    $build['schema'] = array(
+      '#markup' => t('No schema exists yet.'),
+    );
+  }
+  return $build;
+}
+
+function msm_collection_schema_view(array $collection) {
   if (!empty($collection['schema'])) {
     $build['schema'] = array(
       '#theme' => 'msm_schema_table',
@@ -560,4 +576,50 @@ function msm_collection_reset_form_submit($form, &$form_state) {
     $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/view', $collection['_id']);
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
+}
+
+function msm_collection_schema_analyze_form($form, &$form_state, array $collection) {
+  $result = msm_request(sprintf('collection/%s/count', $collection['_id']));
+  if (!$result['ok']) {
+    $form['error'] = array(
+      '#markup' => t('Failed to retrieve record count from @db -> @collection', array(
+        '@db' => $form['#db'],
+        '@col' => $form['#cname'],
+      )),
+    );
+  }
+  $form['totalRecords'] = array(
+    '#type' => 'item',
+    '#title' => t('Total records'),
+    '#markup' => $result['count'],
+  );
+  $form['limit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Limit'),
+    '#description' => t('Limit schema analysis to # records.'),
+    '#default_value' => $result['count'],
+  );
+  drupal_set_title(t('Analyze and import schema for @collection', array('@collection' => $collection['_id'])));
+  $form['actions'] = array(
+    '#prefix' => sprintf('<p>%s</p>', t('This will analyze the existing data to derrive the schema structure and import it as an "existing" collection.')),
+    '#type' => 'actions',
+  );
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Analyze & Import Schema'),
+  );
+  $form['actions']['cancel'] = array(
+    '#type' => 'link',
+    '#title' => t('Cancel'),
+    '#href' => sprintf('admin/structure/msm/col/%s', $collection['_id']),
+  );
+  $form['#collection'] = $collection;
+  return $form;
+}
+
+function msm_collection_schema_analyze_form_submit($form, &$form_state) {
+  $collection = $form['#collection'];
+  $options = array('limit' => $form_state['values']['limit']);
+  $result = msm_post(sprintf('collection/%s/analyze', $collection['_id']), $options);
+  $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema/view', $collection['_id']);
 }

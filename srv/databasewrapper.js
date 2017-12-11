@@ -13,6 +13,19 @@ DatabaseWrapper.prototype.connect = function (callback) {
     });
 }
 
+DatabaseWrapper.prototype.getCollection = function (dbName, collectionName, callback) {
+    this.connect(function (err, con) {
+        if (err) {
+            callback(err);
+        }
+        else {
+            var db = con.db(dbName);
+            var col = db.collection(collectionName);
+            callback(null, col, db, con);
+        }
+    });
+}
+
 DatabaseWrapper.prototype.close = function() {
     this.connection.close();
 }

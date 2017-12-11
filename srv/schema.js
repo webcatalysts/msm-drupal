@@ -1,4 +1,6 @@
-
+var Promise = require('promise');
+var BSON = require('bson');
+var bson = new BSON();
 
 function projectSchema(project, schema) {
   var removeFields = [];
@@ -88,7 +90,117 @@ function flattenSchemaFields(schema, ns) {
 function expandSchema(fields) {
 }
 
+var analyzeSchema = function (con, dbName, colName, options) {
+    console.log('Analyzing schema for ' + dbName + '.' + colName + '.');
+
+    var schemaDatabase = 'varietyResults';
+    var schemaCollection = dbName + '.' + colName + '.schemaFields';
+    options = Object.assign({
+        limit: 100,
+        persistResults: true,
+        resultsCollection: schemaCollection,
+    }, options);
+    return new Promise(function (fulfill, reject) {
+        schemaAnalysisBuildCode(colName, options)
+            .then(function (code) {
+                var db = con.db(dbName);
+                db.eval(code, [], {}, function (err, result) {
+                    if (err) reject(err);
+                    else {
+                        fulfill({"dbName": schemaDatabase, "colName": schemaCollection});
+                    }
+                });
+            })
+            .catch(reject);
+    });
+}
+
+var schemaAnalysisBuildCode = function (colName, options) {
+    console.log('Building code..');
+    var fs = require('fs');
+    //var utils = require('./node_modules/variety-cli/lib/utils');
+    var utils = require('./utils');
+    var libpath = './node_modules/variety/variety.js';
+    return new Promise(function (fulfill, reject) {
+        fs.readFile(libpath, {}, function (err, data) {
+            if (err) {
+                console.log(err);
+                reject(err);
+            }
+            else {
+                var code = 'this.collection = "' + colName + '";'
+                         + 'this.persistResults = "true";'
+                         + 'this.resultsCollection = "' + options.resultsCollection + '";'
+                         + 'var __quiet = true;'
+                         + data;
+                var code = utils.buildVarietyParams(colName, options) + data;
+                code = JSON.stringify('function () { ' + code + '};');
+                fulfill(eval(code));
+            }
+        });
+    });
+}
+
+var extractSchema = function (con, dbName, colName) {
+    console.log('Extracting schema for: ' + dbName + '.' + colName + '.');
+    return new Promise(function (fulfill, reject) {
+        con.db(dbName).collection(colName).find().toArray(function (err, fields) {
+            if (err) reject(err);
+            else fulfill(buildSchemaFromFields(fields));
+        });
+    });
+}
+
+var buildSchemaFromFields = function(fields) {
+    var fieldNames = [];
+    var schema = {};
+    var numFields = fields.length;
+    for (var i = 0; i < numFields; i++) {
+        var field = fields[i];
+        if (typeof field.value.types.Number !== 'undefined' || typeof field.value.types.NumberLong !== 'undefined') {
+            var value = { type: 'int' };
+        }
+        else if (typeof field.value.types.String !== 'undefined') {
+            var value = { type: 'text' };
+        }
+        else if (typeof field.value.types.Object !== 'undefined') {
+            var value = { type: 'group', children: {} };
+        }
+        else if (typeof field.value.types.Array !== 'undefined') {
+            var value = { type: 'array', children: {} };
+        }
+        else if (typeof field.value.types.Boolean !== 'undefined') {
+            var value = { type: 'boolean' };
+        }
+        else { continue; }
+
+        var fieldName = field['_id'].key;
+
+        if (fieldName.match(/^_versionHash/) || fieldName.match(/^_changeHistory/)) {
+            continue;
+        }
+
+        if (fieldName.match(new RegExp(/XX\./))) {
+            var fieldName = fieldName.replace(/XX\./g, "");
+        }
+        if (fieldName.match(/\./)) {
+            var parts = fieldName.split('.');
+            var lastPart = parts.length-1;
+            var fieldName = parts[lastPart];
+            delete parts[lastPart];
+            var parts = parts.filter(function (part) { return typeof part !== 'undefined' });
+            var parentFieldName = parts.length > 1 ? parts.join('.children.') : parts[0];
+            eval('var fieldName = "' + parentFieldName + '.children.' + fieldName + '";');
+        }
+        fieldNames.push(fieldName);
+        eval('schema.' + fieldName + ' = value;');
+    }
+    return schema;
+}
+
 module.exports = {
     flattenSchemaFields: flattenSchemaFields,
     projectSchema: projectSchema,
+    analyzeSchema: analyzeSchema,
+    extractSchema: extractSchema,
 }

@@ -92,14 +92,40 @@ function msm_menu() {
   );
   $items['admin/structure/msm/col/%msm_collection/schema'] = array(
     'title' => 'Schema',
+    'page callback' => 'msm_collection_schema_view',
+    'page arguments' => array(4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'schema-view'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+  );
+  $items['admin/structure/msm/col/%msm_collection/schema/view'] = array(
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'title' => 'View',
+    'weight' => -10,
+  );
+  $items['admin/structure/msm/col/%msm_collection/schema/edit'] = array(
+    'title' => 'Edit Schema',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_schema_form', 4),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'schema'),
+    'access arguments' => array(4, 'schema-edit'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'schema_form.inc',
-    'weight' => -80,
+    'weight' => -1,
+  );
+  $items['admin/structure/msm/col/%msm_collection/schema/analyze'] = array(
+    'title' => 'Analyze Schema',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_schema_analyze_form', 4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => 10,
   );
   $items['admin/structure/msm/col/%msm_collection/reset'] = array(
     'title' => 'Reset',
@@ -358,7 +384,9 @@ function msm_collection_access($collection, $op = null) {
   if (isset($collection['schemaImported']) || empty($collection['type'])) {
     switch ($op) {
       case 'view':
-      case 'schema':
+      case 'schema-view':
+      case 'schema-edit':
+      case 'schema-analyze':
       case 'delete':
         return TRUE;
       case 'reset':
@@ -381,7 +409,8 @@ function msm_collection_access($collection, $op = null) {
       return $collection['type'] == 'custom';
     case 'reset':
       return FALSE;
-    case 'schema':
+    case 'schema-view':
+    case 'schema-edit':
       if (!empty($collection['schemaImported'])) {
         return TRUE;
       }

@@ -56,6 +56,7 @@ var ProcessCustom = function (instance, callback) {
             var destinationCollectionName = instance.collection.collection;
             var destinationCollection = destinationDatabase.collection(destinationCollectionName);
         }
+        console.log(instance.collection);
         console.log('Processing custom eval collection: ', instance.collection._id);
         eval('var evalCustom = function () { ' + instance.collection.eval.code + ' };');
         evalCustom();

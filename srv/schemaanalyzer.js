@@ -1,6 +1,7 @@
 //
 // https://github.com/variety/variety-cli
 var child = require('child-process-promise');
+var Promise = require('promise');
 var program = require('./node_modules/variety-cli/lib/program');
 var utils = require('./node_modules/variety-cli/lib/utils');
 var bson = require('bson');
