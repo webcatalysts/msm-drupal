@@ -1,7 +1,6 @@
 
 var assert = require('assert'),
-    promise = require('promise'),
-    CollectionProvider = require('./collectionprovider');
+    promise = require('promise');
 
 DatabaseProvider = function (databaseWrapper, databaseName, collectionName) {
     this.databaseWrapper = databaseWrapper;
@@ -13,18 +12,11 @@ DatabaseProvider.prototype.setCollectionProvider = function(collectionProvider) 
     this.collectionProvider = collectionProvider;
 }
 
-DatabaseProvider.prototype.getCollection = function(callback) {
-    var provider = this;
-    this.databaseWrapper.connect(function(err, con) {
-        if (err) callback(err);
-        else {
-            var db = con.db(provider.databaseName);
-            callback(null, db.collection(provider.collectionName), db, con);
-        }
-    });
+DatabaseProvider.prototype.getCollection = async function() {
+    return await this.databaseWrapper.getCollection(this.databaseName, this.collectionName);
 }
 
-DatabaseProvider.prototype.findAll = function (callback) {
+DatabaseProvider.prototype.find = async function (query = {}) {
     var mergeDbs = function(documents, existing) {
         var results = [];
         // key the existing dbs
@@ -64,21 +56,16 @@ DatabaseProvider.prototype.findAll = function (callback) {
         }
         return results;
     }
-    this.getCollection(function(err, col, db, con) {
-        con.db('admin').admin().listDatabases(function(err, existingDbs) {
-            if (err) callback(err);
-            else {
-                col.find().toArray(function(err, docs) {
-                    con.close();
-                    callback(null, mergeDbs(docs, existingDbs.databases));
-                });
-            }
-        });
-    });
+
+    let dbsrv = await this.getCollection();
+    let existingDbs = await dbsrv.con.db('admin').admin().listDatabases();
+    let docs = await dbsrv.col.find(query).toArray();
+    dbsrv.con.close();
+    return mergeDbs(docs, existingDbs.databases);
 }
 
-DatabaseProvider.prototype.findById = function(id, callback) {
-    var mergeCollections = function(existing, docs) {
+DatabaseProvider.prototype.findOne = async function(query, callback) {
+    var mergeCollections = function(id, existing, docs) {
         var existingKeyed = {};
         var docsKeyed = {};
         var numExisting = existing.length;
@@ -120,70 +107,63 @@ DatabaseProvider.prototype.findById = function(id, callback) {
         }
         return results;
     }
-    var provider = this;
-    this.getCollection(function(err, col, db, con) {
-        col.findOne({_id: id}, {}, function(err, doc) {
-            if (err) callback(err);
-            else if (!doc) {
-                con.close();
-                callback(null, {});
-            }
-            else {
-                doc.name = doc._id;
-                delete doc._id;
-                con.db(doc.name).listCollections().toArray(function(err, cols) {
-                    con.close();
-                    var existingCollections = cols;
-                    provider.collectionProvider.findByDatabase(doc.name, function(err, cols) {
-                        doc.collections = mergeCollections(existingCollections, cols);
-                        callback(null, doc);
-                    });
-                });
-            }
-        });
-    });
+
+    let dbsrv = await this.getCollection();
+    let doc = await dbsrv.col.findOne(query);
+    doc.name = doc._id;
+    delete doc._id;
+    let existingCollections = await dbsrv.con.db(doc.name).listCollections().toArray();
+    dbsrv.con.close();
+    let cols = await this.collectionProvider.find({database: doc.name});
+    doc.collections = mergeCollections(doc.name, existingCollections, cols);
+    return doc;
 }
 
-DatabaseProvider.prototype.save = function(name, data, callback) {
-    this.getCollection(function(err, collection) {
-        if (err) callback(err);
-        else {
-            collection.update({_id: name}, data, {upsert: true}, function (err, res) {
-                if (err) callback(err);
-                else callback(null, res);
-            });
-        }
-    });
+DatabaseProvider.prototype.save = async function (name, data, callback) {
+    let dbsrv = await this.getCollection();
+    let result = await dbsrv.col.update({_id: name}, data, {upsert: true});
+    return result;
 }
 
-DatabaseProvider.prototype.delete = function(name, callback) {
-    var collectionProvider = this.collectionProvider;
-    var databaseProvider = this;
-    collectionProvider.deleteByDatabase(name, function (err, result) {
-        if (err) callback(err);
-        else {
-            databaseProvider.getCollection(function(err, collection) {
-                if (err) callback(err);
-                else {
-                    collection.deleteOne({_id: name}, function (err, result) {
-                        if (err) callback(err);
-                        else callback(null, result);
-                    });
-                }
-            });
-        }
-    });
+DatabaseProvider.prototype.delete = async function (name, callback) {
+    let res1 = await this.collectionProvider.delete({database: name});
+    let res2 = await this.databaseProvider.deleteOne({_id: name});
+    return res2;
 }
 
-DatabaseProvider.prototype.disable = function(name, callback) {
-    this.getCollection(function(err, collection) {
-        collection.updateOne({ _id: name }, { $set: { enabled: false }}, { upsert: true }, callback);
-    });
+DatabaseProvider.prototype.disable = async function(name, callback) {
+    let dbsrv = await this.getCollection();
+    let result = await dbsrv.col.updateOne({ _id: name }, { $set: { enabled: false }}, { upsert: true });
+    return result;
 }
 
-DatabaseProvider.prototype.enable = function(name, callback) {
-    this.getCollection(function(err, collection) {
-        collection.updateOne({ _id: name }, { $set: { enabled: true }}, { upsert: true }, callback);
+DatabaseProvider.prototype.enable = async function(name, callback) {
+    let dbsrv = await this.getCollection();
+    let result = await dbsrv.col.updateOne({ _id: name }, { $set: { enabled: true }}, { upsert: true });
+    return result;
+}
+
+DatabaseProvider.prototype.analyzeSchema = async function (dbName, colName, options = {}) {
+    var schema = require('./schema');
+    let con = await this.databaseWrapper.connect();
+    var colId = dbName + '.' + colName;
+    await this.collectionProvider.save(colId, { '$set': {
+        name: colId,
+        collection: colName,
+        database: dbName,
+        enabled: false,
+        analyzingSchema: true
+    }});
+
+    let result = await schema.analyzeSchema(con, dbName, colName, options);
+    let schemaResult = await schema.extractSchema(con, result.dbName, result.colName);
+    return this.save(colId, {
+        '$set': {
+            'schema': schemaResult,
+            'enabled': true,
+            'schemaImported': true,
+        },
+        '$unset': { 'analyzingSchema': '' },
     });
 }
 

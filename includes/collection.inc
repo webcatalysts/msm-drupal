@@ -317,6 +317,7 @@ function msm_collection_settings_form($form, &$form_state, array $collection) {
     'preExecute' => NULL,
     'postExecute' => NULL,
     'type' => 'existing',
+    'persist' => FALSE,
   );
   $form['process'] = array(
     '#tree' => FALSE,
@@ -324,7 +325,7 @@ function msm_collection_settings_form($form, &$form_state, array $collection) {
     '#title' => t('Processing'),
     '#collapsible' => TRUE,
     '#collapsed' => empty($collection['preProcess']) && empty($collection['postProcess']),
-    '#access' => !in_array($collection['type'], array('custom', 'existing')),
+    '#access' => $collection['persist'],
   );
   $form['process']['preProcess'] = array(
     '#title' => t('Pre-process code'),
@@ -409,6 +410,7 @@ function msm_collection_settings_form_submit($form, &$form_state) {
 function msm_collection_endpoint(array $collection) {
   return drupal_get_form('msm_collection_endpoint_form', $collection);
 }
+
 function msm_collection_endpoint_form($form, &$form_state, array $collection) {
   $params = empty($form_state['values']['params']) ? array() : $form_state['values']['params'];
   $params += array(

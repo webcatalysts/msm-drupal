@@ -430,6 +430,11 @@ function msm_collection_access($collection, $op = null) {
         default: throw new Exception(t('Unknown collection type: %collection_type', array('%collection_type' => $collection['type'])));
       }
       break;
+    case 'schema-reset':
+    case 'reset':
+      return !empty($collection['schema']);
+    case 'schema-analyze':
+      return empty($collection['schema']);
     case 'settings':
       return !empty($collection['schema']);
     case 'endpoint':

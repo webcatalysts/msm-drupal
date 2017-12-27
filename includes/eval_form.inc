@@ -45,6 +45,9 @@ function msm_eval_form($form, &$form_state, array $collection) {
   if (isset($options[$collection['_id']])) {
     unset($options[$collection['_id']]);
   }
+  if (isset($options[$collection['source']])) {
+      unset($options[$collection['source']]);
+  }
   $form['deps']['dependencies'] = array(
     '#type' => 'checkboxes',
     '#options' => $options,

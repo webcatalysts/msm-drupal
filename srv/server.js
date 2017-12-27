@@ -1,7 +1,6 @@
 var express = require('express'),
     app     = express(),
     config = require('./config'),
-    schema = require('./schema'),
     DatabaseWrapper = require('./databasewrapper').DatabaseWrapper,
     DatabaseProvider = require('./databaseprovider').DatabaseProvider,
     CollectionProvider = require('./collectionprovider').CollectionProvider;
@@ -21,143 +20,134 @@ app.configure(function() {
     app.use(express.bodyParser());
 });
 
-app.get('/databases', function (req, res) {
-    databaseProvider.findAll(function(error, dbs) {
-        res.send(200, dbs);
-    });
+// Get the db server status
+app.get('/status', async function (req, res) {
+    let con = await databaseWrapper.connect();
+    let info = await con.db('admin').admin().serverStatus();
+    con.close();
+    res.send(info);
 });
 
-app.get('/database/:name/enable', function(req, res) {
-    databaseProvider.enable(req.params.name, function(err, result) {
-        res.send(result);
-    });
+// Retrieve a list of existing and enabled databases.
+app.get('/databases', async function (req, res) {
+    let dbs = await databaseProvider.find();
+    res.send(dbs);
 });
 
-app.get('/database/:name/disable', function(req, res) {
-    databaseProvider.disable(req.params.name, function(err, result) {
-        res.send(result);
-    });
+// Retrieve details for a specific database.
+app.get('/database/:name', async function (req, res) {
+    let doc = await databaseProvider.findOne({_id: req.params.name});
+    res.send(doc);
 });
 
-app.get('/database/:name/delete', function(req,res) {
-    databaseProvider.delete(req.params.name, function(err, result) {
-        res.send(result);
-    });
+// Enable a specific database
+app.get('/database/:name/enable', async function (req, res) {
+    let result = await databaseProvider.enable(req.params.name);
+    res.send(result);
 });
 
-app.get('/database/:name/update', function(req, res) {
-    databaseProvider.save(req.params.name, function(err, result) {
-        res.send(result);
-    });
+// Disable a specific database
+app.get('/database/:name/disable', async function (req, res) {
+    let result = await databaseProvider.disable(req.params.name);
+    res.send(result);
 });
 
-app.get('/database/:db/analyze/:col', function(req, res) {
-    var SchemaAnalyzer = require('./schemaanalyzer');
-    var schemaAnalysis = new SchemaAnalyzer.SchemaAnalysis(req.params.db, req.params.col, databaseWrapper, collectionProvider);
-    SchemaAnalyzer.analyzeSchema(schemaAnalysis, mongoURL, {}, function(err, result) {
-        if (err) res.send(err);
-        else res.send(result);
-    });
+// Delete a specific database
+app.get('/database/:name/delete', async function (req, res) {
+    let result = databaseProvider.delete(req.params.name);
+    res.send(result);
 });
 
-app.post('/database/:db/analyze/:col', function(req, res) {
-    var SchemaAnalyzer = require('./schemaanalyzer');
-    var schemaAnalysis = new SchemaAnalyzer.SchemaAnalysis(req.params.db, req.params.col, databaseWrapper, collectionProvider);
-    var options = { limit: 1*req.body.limit };
-    SchemaAnalyzer.analyzeSchema(schemaAnalysis, mongoURL, options, function(err, result) {
-        if (err) res.send(err);
-        else res.send(result);
-    });
+// Update a specific database
+app.post('/database/:name/update', async function (req, res) {
+    let result = databaseProvider.save(req.params.name, req.body);
+    res.send(result);
 });
 
-app.get('/database/:db/count/:col', function (req, res) {
-    databaseWrapper.connect(function (err, con) {
-        con.db(req.params.db).collection(req.params.col).count({}, {}, function (err, count) {
-            if (err) res.send({ok: 0, error: err});
-            else res.send({ok: 1, count: count});
+// Analyze a pre-existing collection with the default limit.
+app.get('/database/:db/analyze/:col', async function (req, res) {
+    databaseProvider.analyzeSchema(req.params.db, req.params.col)
+        .then(function (result) {
+            console.log('Finished analyzing collection: %s.%s', req.params.db, req.params.col);
+        })
+        .catch(function (err) {
+            console.log(err);
         });
-    });
+    res.send({ok: 1});
 });
 
-app.get('/database/:name', function(req, res) {
-    databaseProvider.findById(req.params.name, function(err, dbDoc) {
-        res.send(dbDoc);
-    });
+// Analyze a pre-existing collection the a custom limit.
+app.post('/database/:db/analyze/:col', async function (req, res) {
+    var options = {
+        limit: req.body.limit || false,
+    }
+    databaseProvider.analyzeSchema(req.params.db, req.params.col)
+        .then(function (result) {
+            console.log('Finished analyzing collection: %s.%s', req.params.db, req.params.col);
+        })
+        .catch(function (err) {
+            console.log(err);
+        });
+    res.send({ok: 1});
 });
 
-app.get('/collections', function(req, res) {
-    collectionProvider.findAll(function(err, results) {
-        res.send(results);
-    });
+// Get a collections document count
+app.get('/database/:db/count/:col', async function (req, res) {
+    let con = await databaseWrapper.connect();
+    let count = await con.db(req.params.db).collection(req.params.col).count();
+    res.send({ok: 1, count: count});
 });
 
-app.get('/collections/:db', function(req, res) {
-    collectionProvider.findByDatabase(req.params.db, function(err, results) {
-        res.send(results);
-    });
+app.get('/collections', async function (req, res) {
+    let docs = await collectionProvider.find();
+    res.send(docs);
 });
 
-app.post('/collection/create/:id', function (req, res) {
+app.get('/collections/:db', async function (req, res) {
+    let docs = await collectionProvider.find({database: req.params.db});
+    res.send(docs);
+});
+
+app.post('/collection/create/:id', async function (req, res) {
     req.body.enabled = false;
-    collectionProvider.save(req.params.id, req.body, function (err, result) {
-        if (err) res.send({ok:0, error: err});
-        else res.send(result);
-    });
+    let result = await collectionProvider.save(req.params.id, req.body);
+    res.send(result);
 });
 
-app.get('/collection/:id', function (req, res) {
-    collectionProvider.findById(req.params.id, function (err, col) {
-        if (err) res.send({ ok: 0, error: err});
-        else res.send(col);
-    });
+app.get('/collection/:id', async function (req, res) {
+    let doc = await collectionProvider.findOne({_id: req.params.id});
+    res.send(doc);
 });
 
-app.get('/collection/:id/count', function (req, res) {
-    collectionProvider.findById(req.params.id, function (err, col) {
-        if (err) {
-            res.send({ok: 0, error: err});
-        }
-        else {
-            databaseWrapper.getCollection(col.database, col.collection, function (err, col, db, con) {
-                col.count({}, {}, function (err, count) {
-                    if (err) {
-                        res.send({ok: 0, error: err});
-                    }
-                    else {
-                        res.send({ok: 1, count: count});
-                    }
-                });
-            });
-        }
-    });
+app.get('/collection/:id/count', async function (req, res) {
+    let count = await collectionProvider.countDocuments(req.params.id);
+    res.send({ok: 1, count: count});
 });
 
-app.post('/collection/:id/count', function (req, res) {
+app.post('/collection/:id/count', async function (req, res) {
     var query = req.params.body.query || {};
     var options = req.params.body.options || {};
-    collectionProvider.findById(req.params.id, function (err, col) {
-        if (err) {
-            res.send({ok: 0, error: err});
-        }
-        else {
-            databaseWrapper.getCollection(col.database, col.collection, function (err, col, db, con) {
-                col.count(query, options, function (err, count) {
-                    if (err) {
-                        res.send({ok: 0, error: err});
-                    }
-                    else {
-                        res.send({ok: 1, count: count});
-                    }
-                });
-            });
-        }
-    });
+    let count = await collectionProvider.countDocuments(req.params.id, query, options);
+    res.send({ok: 1, count: count});
 });
 
-app.get('/collection/:id/analyze', function(req, res) {
-    collectionProvider.analyzeSchema(req.params.id, options)
+app.post('/collection/:id/query', async function (req, res) {
+    var params = {
+        query: req.body.query || {},
+        project: req.body.project || false,
+        skip: req.body.skip || false,
+        limit: req.body.limit || false,
+        batchSize: req.body.batchSize || false,
+        sort: req.body.sort || false
+    };
+    let result = await collectionProvider.query(req.params.id, params);
+    res.send(result);
+});
+
+app.get('/collection/:id/analyze', async function (req, res) {
+    collectionProvider.analyzeSchema(req.params.id, {})
         .then(function (result) {
-            console.log('Finished analysing collection: ', req.params.id);
+            console.log('Finished analyzing collection: %s', req.params.id);
         })
         .catch(function (err) {
             console.log(err);
@@ -165,11 +155,11 @@ app.get('/collection/:id/analyze', function(req, res) {
     res.send({ok: 1});
 });
 
-app.post('/collection/:id/analyze', function(req, res) {
+app.post('/collection/:id/analyze', async function (req, res) {
     var options = { limit: 1*req.body.limit };
     collectionProvider.analyzeSchema(req.params.id, options)
         .then(function (result) {
-            console.log('Finished analysing collection: ', req.params.id);
+            console.log('Finished analyzing collection: %s', req.params.id);
         })
         .catch(function (err) {
             console.log(err);
@@ -177,162 +167,60 @@ app.post('/collection/:id/analyze', function(req, res) {
     res.send({ok: 1});
 });
 
-
-app.post('/collection/:id/update', function (req, res) {
-    collectionProvider.save(req.params.id, req.body, function (err, result) {
-        if (err) res.send({ok: 0, error: err});
-        else res.send(result);
-    });
+app.post('/collection/:id/update', async function (req, res) {
+    let result = await collectionProvider.save(req.params.id, req.body);
+    res.send(result);
 });
 
-app.get('/collection/:id/delete', function (req, res) {
-    collectionProvider.delete(req.params.id, function (err, result) {
-        if (err) res.send({ok: 0, error: err});
-        else res.send(result);
-    });
+app.get('/collection/:id/delete', async function (req, res) {
+    let result = await collectionProvider.deleteOne({_id: req.params.id});
+    return result;
 });
 
-app.get('collection/:id/reset', function (req, res) {
-    collectionProvider.resetSchema(req.params.id, function (err, result) {
-        if (err) res.send(err);
-        else res.send(result);
-    });
+app.get('/collection/:id/reset', async function (req, res) {
+    let result = await collectionProvider.resetSchema(req.params.id);
+    return result;
 });
 
-// Update and process
-app.post('/collection/:id/process', function (req, res) {
-    console.log('Updating and processing collection: ', req.params.id);
-    collectionProvider.findById(req.params.id, function (err, collection) {
-        if (err || !collection) {
-            console.log('Unable to find or load collection: ', req.params.id);
-            res.send({ok: 0, error: err});
-        }
-        else {
-            collectionProvider.save(collection._id, req.body, function (err, r) {
-                if (err) res.send({ok: 0, error: err});
-                else {
-                    collectionProvider.findById(collection._id, function (err, collection) {
-                        if (err || !collection) res.send({ok: 0, error: err});
-                        else {
-                            var CollectionProcess = require('./collectionprocess');
-                            var instance = new CollectionProcess.createInstance(collection, databaseWrapper, databaseProvider, collectionProvider);
-                            CollectionProcess.processInstance(instance, function (err, result) {
-                                if (err) res.send({ok: 0, error: err});
-                                else {
-                                    res.send(result);
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        }
-    });
+app.post('/collection/:id/process', async function (req, res) {
+    var CollectionProcess = require('./collectionprocess').CollectionProcess;
+    try {
+        let updateResult = await collectionProvider.save(req.params.id, req.body);
+        console.log('Updating and processing collection: %s', req.params.id);
+        let collectionProcess = new CollectionProcess(
+            req.params.id,
+            databaseWrapper,
+            databaseProvider,
+            collectionProvider
+        );
+        console.log('Successfully updated collection: %s. Running colleciton process..', req.params.id);
+        collectionProcess.run();
+        res.send({ok: 1});
+    }
+    catch (error) {
+        console.log('Error processing collection: %s', error);
+        res.status(500).send('Error processing collection: %s', error);
+    }
 });
 
-// Process only
 app.get('/collection/:id/process', function (req, res) {
-    collectionProvider.save(req.params.id, req.body, function (err, result) {
-        if (err) res.send({ok: 0, error: err});
-        else {
-            res.send(result);
-        }
-    });
-});
-
-app.post('/collection/:id/query', function (req, res) {
-    collectionProvider.findById(req.params.id, function (err, doc) {
-        if (err || !doc) res.send({ok: 0, error: err});
-        else {
-            if (!doc.schema) {
-                res.send({ok: 0, error: 'Collection has no schema.' });
-            }
-            databaseWrapper.connect(function (err, con) {
-                var params = {
-                    query: req.body.query || {},
-                    project: req.body.project || false,
-                    skip: req.body.skip || false,
-                    limit: req.body.limit || false,
-                    batchSize: req.body.batchSize || false,
-                    sort: req.body.sort || false,
-                }
-
-                var db = con.db(doc.database);
-                var collection = db.collection(doc.collection);
-
-                var result = {
-                    schema: doc.schema
-                }
-
-                if (doc.preExecute) {
-                    eval('var preExecute = function (document, collection, params, result) { ' + doc.preExecute + ' }');
-                    preExecute(doc, collection, params, result);
-                }
-
-                var cursor = con.db(doc.database).collection(doc.collection).find(params.query);
-
-                cursor.count(false, {}, function (err, count) {
-                    result.totalResults = count;
-                    if (count) {
-                        if (params.project) {
-                            cursor.project(params.project);
-                            result.schema = schema.projectSchema(params.project, result.schema);
-                        }
-                        if (params.skip) {
-                            cursor.skip(1*params.skip);
-                        }
-                        if (params.limit) {
-                            cursor.limit(1*params.limit);
-                        }
-                        if (params.batchSize) {
-                            cursor.batchSize(1*params.batchSize);
-                        }
-                        if (params.sort) {
-                            cursor.sort(params.sort);
-                        }
-                        cursor.toArray(function (err, docs) {
-                            if (err) {
-                                console.log(err);
-                                res.send({ok: 0, error: err});
-                            }
-                            else {
-                                if (doc.postExecute) {
-                                    eval('var postExecute = function (document, collection, params, result) { ' + doc.postExecute + ' }');
-                                    postExecute(doc, collection, params, result);
-                                }
-                                if (req.body.flatten) {
-                                    result.schema = schema.flattenSchemaFields(result.schema);
-                                }
-                                result.results = docs;
-                                result.numResults = docs.length;
-                                con.close();
-                                result.ok = 1;
-                                res.send(result);
-                            }
-                        });
-                    }
-                    else {
-                        result.results = [];
-                        con.close();
-                        result.ok = 1;
-                        res.send(result);
-                    }
-                });
-            });
-        }
-    });
-});
-
-app.get('/status', function(req, res) {
-    databaseWrapper.connect(function(err, con) {
-        if (err) res.send({ ok: 0 });
-        else {
-            con.db('admin').admin().serverStatus(function(err, info) {
-                con.close();
-                res.send(info);
-            });
-        }
-    });
+    let CollectionProcess = require('./collectionprocess').CollectionProcess;
+    try {
+        console.log('Updating and processing collection: %s', req.params.id);
+        let collectionProcess = new CollectionProcess(
+            req.params.id,
+            databaseWrapper,
+            databaseProvider,
+            collectionProvider
+        );
+        console.log('Successfully updated collection: %s. Running colleciton process..', req.params.id);
+        collectionProcess.run();
+        res.send({ok: 1});
+    }
+    catch (error) {
+        console.log('Error processing collection: %s', error);
+        res.status(500).send('Error processing collection: %s', error);
+    }
 });
 
 app.listen(port, ip);

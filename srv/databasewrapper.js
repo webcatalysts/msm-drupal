@@ -6,24 +6,19 @@ DatabaseWrapper = function(url, options) {
     this.connection = null;
 }
 
-DatabaseWrapper.prototype.connect = function (callback) {
-    this.mongodb.connect(this.url, function (err, con) {
-        this.connection = con;
-        callback(err, this.connection);
-    });
+DatabaseWrapper.prototype.connect = async function () {
+    this.connection = await this.mongodb.connect(this.url);
+    return this.connection;
 }
 
-DatabaseWrapper.prototype.getCollection = function (dbName, collectionName, callback) {
-    this.connect(function (err, con) {
-        if (err) {
-            callback(err);
-        }
-        else {
-            var db = con.db(dbName);
-            var col = db.collection(collectionName);
-            callback(null, col, db, con);
-        }
-    });
+DatabaseWrapper.prototype.getCollection = async function (dbName, collectionName) {
+    await this.connect();
+    let db = this.connection.db(dbName);
+    return {
+        con: this.connection,
+        db: db,
+        col: db.collection(collectionName),
+    };
 }
 
 DatabaseWrapper.prototype.close = function() {

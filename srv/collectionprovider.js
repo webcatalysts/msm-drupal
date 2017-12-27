@@ -7,161 +7,151 @@ CollectionProvider = function(databaseWrapper, databaseProvider, databaseName, c
     this.collectionName = collectionName || 'msm_collections';
 }
 
-CollectionProvider.prototype.getCollection = function(callback) {
-    var provider = this;
-    this.databaseWrapper.connect(function(err, con) {
-        if (err) callback(err);
-        else {
-            var db = con.db(provider.databaseName);
-            callback(null, db.collection(provider.collectionName), db, con);
-        }
-    });
+CollectionProvider.prototype.getCollection = async function(callback) {
+    let con = await this.databaseWrapper.connect();
+    var db = con.db(this.databaseName);
+    return {
+        con: con,
+        db: db,
+        col: db.collection(this.collectionName),
+    };
 }
 
-CollectionProvider.prototype.findAll = function(callback) {
-    var thisObj = this;
-    this.getCollection(function(err, col, db, con) {
-        col.find().toArray(function(err, docs) {
-            con.close();
-            if (err) callback(err);
-            else callback(null, docs);
-        });
-    });
+CollectionProvider.prototype.find = async function(query = {}) {
+    let dbsrv = await this.getCollection();
+    let docs = await dbsrv.col.find(query).toArray();
+    dbsrv.con.close();
+    return docs;
 }
 
-CollectionProvider.prototype.find = function (query) {
-    return new Promise(function (fulfill, reject) {
-        this.getCollection(function (err, col, db, con) {
-            if (err) reject(err);
-            else {
-                var cursor = col.find(query)
-                cursor.toArray()
-                    .then(fulfill)
-                    .catch(reject);
-                con.close();
-            }
-        });
-    }.bind(this)());
+CollectionProvider.prototype.findOne = async function (query = {}) {
+    let dbsrv = await this.getCollection();
+    let doc = await dbsrv.col.findOne(query);
+    dbsrv.con.close();
+    return doc;
 }
 
-CollectionProvider.prototype.findByDatabase = function(dbName, callback) {
-    var thisObj = this;
-    this.getCollection(function(err, col, db, con) {
-        col.find({database: dbName}).toArray(function(err, docs) {
-            con.close();
-            callback(null, docs);
-        });
-    });
+CollectionProvider.prototype.count = async function (query, options, callback) {
+    let dbsrv = this.getCollection();
+    let count = dbsrv.col.count(query, options);
+    dbsrv.con.close();
+    return count;
 }
 
-CollectionProvider.prototype.findById = function (id, callback) {
-    this.getCollection(function (err, col, db, con) {
-        if (err) callback(err);
-        else {
-            col.findOne({_id: id}, {}, function (err, result) {
-                con.close();
-                callback(null, result);
-            });
-        }
-    });
+CollectionProvider.prototype.countDocuments = async function (colId, query = {}, options = {}) {
+    let collection = await this.findOne({_id: colId});
+    let dbsrv = await this.databaseWrapper.getCollection(collection.database, collection.collection);
+    let count = await dbsrv.col.count(query, options);
+    return count;
 }
 
-CollectionProvider.prototype.count = function (query, options, callback) {
-    this.getCollection(function (err, col, db, con) {
-        if (err) {
-            callback(err);
-        }
-        else {
-            col.count(query, options, function (err, count) {
-                con.close();
-                callback(null, count);
-            });
-        }
-    });
+CollectionProvider.prototype.deleteOne = async function (query = {}) {
+    var dbsrv = await this.getCollection();
+    let result = await dbsrv.col.deleteOne(query, {});
+    dbsrv.con.close();
+    return result;
 }
 
-CollectionProvider.prototype.delete = function (id, callback) {
-    this.getCollection(function (err, col, db, con) {
-        if (err) callback(err);
-        else {
-            col.deleteOne({_id:id}, {}, function (err, result) {
-                con.close();
-                if (err) callback(err);
-                else callback(null, result);
-                console.log(id);
-            });
-        }
-    });
+CollectionProvider.prototype.deleteMany = async function (query) {
+    let dbsrv = await this.getCollection();
+    let result = await dbsrv.col.deleteMany({database: dbName});
+    dbsrv.con.close();
+    return result;
 }
 
-CollectionProvider.prototype.deleteByDatabase = function (dbName, callback) {
-    this.getCollection(function (err, col, db, con) {
-        if (err) callback(err);
-        else {
-            col.deleteMany({database: dbName}, {}, function (err, result) {
-                con.close();
-                if (err) callback(err);
-                else callback(null, result);
-            });
-        }
-    });
+CollectionProvider.prototype.save = async function(id, data, callback) {
+    let dbsrv = await this.getCollection();
+    let result = await dbsrv.col.updateOne({_id: id}, data, {upsert:true});
+    dbsrv.con.close();
+    return result;
 }
 
-CollectionProvider.prototype.save = function(id, data, callback) {
-    this.getCollection(function(err, col, db, con) {
-        col.updateOne({_id: id}, data, {upsert:true}, function (err, result) {
-            con.close();
-            if (err) callback(err);
-            else callback(null, result);
-        });
-    });
-}
-
-CollectionProvider.prototype.savePromise = function (id, data) {
-    var cp = this;
-    return new Promise(function (fulfill, reject) {
-        cp.getCollection(function (err, col, db, con) {
-            if (err) reject(err);
-            else {
-                col.updateOne({_id: id}, data, {upsert: true}, function (err, result) {
-                    if (err) reject(err);
-                    else {
-                        fulfill(result);
-                    }
-                });
-            }
-        });
-    });
-}
-
-CollectionProvider.prototype.analyzeSchema = function (collectionId, options = {}) {
+CollectionProvider.prototype.analyzeSchema = async function (collectionId, options = {}) {
     var schema = require('./schema');
-    var cp = this;
+    let collection = await this.findOne({_id: collectionId});
+    let con = await this.databaseWrapper.connect();
+
+    let result = await schema.analyzeSchema(con, collection.database, collection.collection, options);
+    let schemaResult = await schema.extractSchema(con, result.dbName, result.colName);
+    return this.save(collection._id, { '$set': { 'schema': schemaResult } });
     return new Promise(function (fulfill, reject) {
-        cp.findById(collectionId, function (err, collection) {
-            cp.databaseWrapper.connect(function (err, con) {
-                schema.analyzeSchema(con, collection.database, collection.collection, options)
-                    .then(function (result) {
-                        return schema.extractSchema(con, result.dbName, result.colName);
-                    })
-                    .then(function (schema) {
-                        con.close();
-                        return cp.savePromise(collection._id, { "$set": { "schema": schema } });
-                    })
-                    .then(function (saveResult) {
-                        fulfill(saveResult);
-                    })
-                    .catch(reject);
-            });
-        });
+        schema.analyzeSchema(con, collection.database, collection.collection, options)
+            .then(function (result) {
+                return schema.extractSchema(con, result.dbName, result.colName);
+            })
+            .then(function (schema) {
+                con.close();
+                return this.save(collection._id, { "$set": { "schema": schema } });
+            })
+            .then(function (saveResult) {
+                fulfill(saveResult);
+            })
+            .catch(reject);
     });
 }
 
-CollectionProvider.prototype.resetSchema = function (databaseName, collectionName, callback) {
-    this.save(databaseName, collectionName, { "$set": { enabled: false }, "$unset": { schema: "" } }, function(err, result) {
-        if (err) callback(err);
-        else callback(null, result);
-    });
+CollectionProvider.prototype.query = async function (collectionId, params = {}) {
+    params = Object.assign({}, {
+        query: {},
+        project: false,
+        skip: false,
+        limit: false,
+        batchSize: false,
+        sort: false,
+    }, params);
+
+    let collection = await this.findOne({_id: collectionId});
+    if (!collection) {
+        return { ok: 0, error: "Collection does not exist." };
+    }
+    if (!collection.schema) {
+        return { ok: 0, error: "Collection does not have schema." };
+    }
+
+    let con = await this.databaseWrapper.connect();
+    var db = con.db(collection.database);
+    var col = db.collection(collection.collection);
+    var result = {
+        schema: collection.schema,
+    };
+
+    if (collection.preExecute) {
+        eval('var preExecute = function (document, collection, params, result) { ' + collection.preExecute + ' }');
+        preExecute(collection, col, params, result);
+    }
+
+    var cursor = col.find(params.query);
+
+    result.totalResults = await cursor.count(false);
+    if (result.totalResults) {
+        if (params.project) {
+            cursor.project(params.project);
+        }
+        if (params.skip) {
+            cursor.skip(1*params.skip);
+        }
+        if (params.limit) {
+            cursor.limit(1*params.limit);
+        }
+        if (params.batchSize) {
+            cursor.batchSize(1*params.batchSize);
+        }
+        result.results = await cursor.toArray();
+        result.numResults = result.results.length;
+
+        if (collection.postExecute) {
+            eval('var postExecute = function (document, collection, params, result) { ' + collection.postExecute + ' }');
+            postExecute(collection, col, params, result);
+        }
+        result.ok = 1;
+        con.close();
+        return result;
+    }
+}
+
+CollectionProvider.prototype.resetSchema = async function (databaseName, collectionName, callback) {
+    let result = await this.save(databaseName, collectionName, { "$set": { enabled: false }, "$unset": { schema: "" } });
+    return result;
 }
 
 CollectionProvider.makeId = function (databaseName, collectionName) {

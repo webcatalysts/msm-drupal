@@ -233,6 +233,10 @@ function msm_database_analyze_schema_form($form, &$form_state, $db, $cname) {
 function msm_database_analyze_schema_form_submit($form, &$form_state) {
   $options = array('limit' => $form_state['values']['limit']);
   $result = msm_post(sprintf('database/%s/analyze/%s', $form['#db']['name'], $form['#cname']), $options);
-  dsm($result);
-  $form_state['redirect'] = sprintf('admin/structure/msm/db/%s', $form['#db']['name']);
+  if ($result['ok']) {
+    $form_state['redirect'] = sprintf('admin/structure/msm/db/%s', $form['#db']['name']);
+  }
+  else {
+    form_set_error('', t('An error has occured: @err', array('@err' => $result['error'])));
+  }
 }
