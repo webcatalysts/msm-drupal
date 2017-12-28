@@ -157,7 +157,7 @@ DatabaseProvider.prototype.analyzeSchema = async function (dbName, colName, opti
 
     let result = await schema.analyzeSchema(con, dbName, colName, options);
     let schemaResult = await schema.extractSchema(con, result.dbName, result.colName);
-    return this.save(colId, {
+    return this.collectionProvider.save(colId, {
         '$set': {
             'schema': schemaResult,
             'enabled': true,

@@ -90,6 +90,7 @@ function theme_msm_variables_help($variables) {
 }
 
 function theme_msm_schema_result_tree($variables) {
+  $variables += array('level' => 0, 'ns' => null);
   $fields = msm_schema_flatten_fields($variables['schema'], MSM_SCHEMA_FLATTEN_ALL);
   $result = $variables['result'];
   $header = array(t('Name'), t('Type'), t('Value'));
@@ -98,12 +99,19 @@ function theme_msm_schema_result_tree($variables) {
     $display_usage = TRUE;
     $header[] = sprintf('<span title="%s">%s</span>', t('Total Occurrences/Percent Container'), t('Usage'));
   }
+  $skip_fields = array();
   foreach ($fields AS $field_name => $field_info) {
+    if ($variables['ns']) {
+      $field_name = sprintf('%s.%s', $variables['ns'], $field_name);
+    }
+    if (in_array($field_name, $skip_fields)) {
+      continue;
+    }
     $display = theme('msm_schema_field_label', array(
       'field_name' => $field_name,
       'field_info' => $field_info,
     ));
-    $level = count($field_info['parents'])-1;
+    $level = count($field_info['parents'])-1+$variables['level'];
     for ($i = 0; $i < $level; $i++) {
       $display = '<span class="indent">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>' . $display;
     }
@@ -125,15 +133,37 @@ function theme_msm_schema_result_tree($variables) {
       $row[] = sprintf('%s%%', number_format($field_info['percentContaining']));
     }
     $rows[] = $row;
+    if ($field_info['type'] == 'array') {
+      $skip_fields = array_merge($skip_fields, array_keys(msm_schema_flatten_fields($field_info['children'], MSM_SCHEMA_FLATTEN_ALL, $field_name)));
+      if ($values = drupal_array_get_nested_value($result, $field_info['parents'])) {
+        dsm($values);
+        foreach ($values AS $value) {
+          $rows[] = array(array(
+            'colspan' => 4,
+            'data' => theme('msm_schema_result_tree', array(
+              'schema' => $field_info['children'],
+              'result' => $value,
+              'level' => $level,
+              'ns' => $field_name,
+            )),
+          ));
+        }
+      }
+    }
   }
+  dsm($rows);
   return theme('table', array('header' => $header, 'rows' => $rows));
 }
 
 function theme_msm_schema_field_label($variables) {
   $field_name = $variables['field_name'];
   $field_info = $variables['field_info'];
+  $field_info += array('type' => NULL);
   $key = empty($variables['key']) ? 'title' : $variables['key'];
   $title = empty($field_info['display'][$key]) ? $field_name : $field_info['display'][$key];
+  if ($field_info['type'] == 'array') {
+    $title .= '[]';
+  }
   if (empty($field_info['display']['description'])) {
     if ($key !== 'title') {
       $description = $title;

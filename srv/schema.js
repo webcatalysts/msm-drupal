@@ -157,22 +157,32 @@ var buildSchemaFromFields = function(fields) {
     var numFields = fields.length;
     for (var i = 0; i < numFields; i++) {
         var field = fields[i];
+        var value = {};
         if (typeof field.value.types.Number !== 'undefined' || typeof field.value.types.NumberLong !== 'undefined') {
-            var value = { type: 'int' };
+            value.type = 'int';
         }
         else if (typeof field.value.types.String !== 'undefined') {
-            var value = { type: 'text' };
+            value.type = 'text';
         }
         else if (typeof field.value.types.Object !== 'undefined') {
-            var value = { type: 'group', children: {} };
+            value.type = 'group';
+            value.children = {};
         }
         else if (typeof field.value.types.Array !== 'undefined') {
-            var value = { type: 'array', children: {} };
+            value.type = 'array';
+            value.children = {};
         }
         else if (typeof field.value.types.Boolean !== 'undefined') {
-            var value = { type: 'boolean' };
+            value.type == 'boolean';
         }
-        else { continue; }
+        else if (typeof field.value.types.Date !== 'undefined') {
+            value.type = 'date';
+        }
+        else {
+            console.log('Unextracted field:');
+            console.log(field);
+            continue;
+        }
 
         value.totalOccurrences = field.totalOccurrences;
         value.percentContaining = field.percentContaining;

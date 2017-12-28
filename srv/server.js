@@ -174,7 +174,7 @@ app.post('/collection/:id/update', async function (req, res) {
 
 app.get('/collection/:id/delete', async function (req, res) {
     let result = await collectionProvider.deleteOne({_id: req.params.id});
-    return result;
+    res.send(result);
 });
 
 app.get('/collection/:id/reset', async function (req, res) {
