@@ -6,6 +6,7 @@ DatabaseProvider = function (databaseWrapper, databaseName, collectionName) {
     this.databaseWrapper = databaseWrapper;
     this.databaseName = databaseName || 'msm';
     this.collectionName = collectionName || 'msm_databases';
+    this.runAllCollectionName = 'msm_process';
 }
 
 DatabaseProvider.prototype.setCollectionProvider = function(collectionProvider) {
@@ -14,6 +15,10 @@ DatabaseProvider.prototype.setCollectionProvider = function(collectionProvider) 
 
 DatabaseProvider.prototype.getCollection = async function() {
     return await this.databaseWrapper.getCollection(this.databaseName, this.collectionName);
+}
+
+DatabaseProvider.prototype.getDatabase = async function () {
+    return await this.databaseWrapper.getDatabase(this.databaseName);
 }
 
 DatabaseProvider.prototype.find = async function (query = {}) {

@@ -77,17 +77,95 @@ function flattenSchemaFields(schema, ns) {
       v.parents = [f];
     }
     if (v.type == 'group' || v.type == 'array') {
-      if(v.children && v.children.length) {
-        result = Object.assign(result, flattenSchemaFields(v.children, cns));
+      if(v.children && Object.keys(v.children).length) {
+        var ch = v.children;
         delete v.children;
+        result = Object.assign({}, flattenSchemaFields(ch, cns), result);
       }
     }
     result[cns] = v;
-  }
+  } 
   return result;
 }
 
 function expandSchema(fields) {
+    var fieldNames = Object.keys(fields).sort();
+    var numFields = fieldNames.length;
+    var schema = {};
+    for (var f = 0; f < numFields; f++) {
+        var fieldName = fieldNames[f];
+        var field = fields[fieldName];
+        var pstr = field.parents.join('.children.');
+        var parents = pstr.split('.');
+        schema = setNestedValue(schema, parents, field);
+    }
+    return schema;
+}
+
+function mergeSchema(a,b) {
+    var af = flattenSchemaFields(a);
+    var bf = flattenSchemaFields(b);
+    var afn = Object.keys(af);
+    var bfn = Object.keys(bf);
+    var allFields = afn.concat(bfn).filter(function(value, index, self) {
+        return self.indexOf(value) === index;
+    }).sort(function(a,b) {
+        if (a < b) return -1;
+        if (a > b) return 1;
+        return 0;
+    });
+    var nF = allFields.length;
+    var res = {};
+    for (var i = 0; i < nF; i++) {
+        var f = allFields[i];
+        var afv = afn.indexOf(f) !== -1 ? af[f] : false;
+        var bfv = bfn.indexOf(f) !== -1 ? bf[f] : false;
+        if (afv && bfv) {
+            //var v = Object.assign({}, afv, bfv);
+            console.log('merge field %s', f);
+            var v = Object.assign({}, bfv, afv);
+        }
+        else if (afv) {
+            console.log('A field %s', f);
+            var v = afv;
+        }
+        else if (bfv) {
+            console.log('B field %s', f);
+            var v = bfv;
+        }
+        else {
+            console.log('Dropped field: %s', f);
+            continue;
+        }
+        res[f] = v;
+    }
+    return expandSchema(res);
+}
+
+function setNestedValue(obj, parents, value, force = false) {
+    var schema = obj;
+    var len = parents.length;
+    for (var i = 0; i < len-1; i++) {
+        var elem = parents[i];
+        if (!schema[elem]) schema[elem] = {};
+        schema = schema[elem];
+    }
+    schema[parents[len-1]] = value;
+    return obj;
+
+    var ref = object;
+    var numP = parents.length;
+    for(var i = 0; i < numP-1; i++) {
+        var p = parents[i];
+        if (typeof ref === 'undefined') {
+            ref = {};
+        }
+        if (typeof ref[p] === 'undefined') {
+            ref[p] = {};
+        }
+        ref = ref[p];
+    }
+    ref = value;
 }
 
 var analyzeSchema = function (con, dbName, colName, options) {
@@ -173,10 +251,13 @@ var buildSchemaFromFields = function(fields) {
             value.children = {};
         }
         else if (typeof field.value.types.Boolean !== 'undefined') {
-            value.type == 'boolean';
+            value.type = 'boolean';
         }
         else if (typeof field.value.types.Date !== 'undefined') {
             value.type = 'date';
+        }
+        else if (typeof field.value.types.ObjectId !== 'undefined') {
+            value.type = 'id';
         }
         else {
             console.log('Unextracted field:');
@@ -211,9 +292,41 @@ var buildSchemaFromFields = function(fields) {
     return schema;
 }
 
+var sortSchema = function (schemaIn) {
+    var schemaOut = {};
+    var fields = [];
+    var fieldNames = Object.keys(schemaIn);
+    var numFields = fieldNames.length;
+    for (var i = 0; i < numFields; i++) {
+        var f = fieldNames[i];
+        var field = schemaIn[f];
+        field.display = field.display && Object.keys(field.display).length ? field.display : {};
+        field.display.weight = typeof field.display.weight === 'undefined' ? 0 : field.display.weight;
+        field.__fieldName = f;
+        if (field.children && Object.keys(field.children).length) {
+            field.children = sortSchema(schemaIn[f].children);
+        }
+        fields.push(field);
+    }
+    fields.sort(function(a,b) {
+        if (a.display.weight < b.display.weight) return -1;
+        if (a.display.weight > b.display.weight) return 1;
+        return 0;
+    });
+    for (var i = 0; i < numFields; i++) {
+        var f = fields[i].__fieldName;
+        delete fields[i].__fieldName;
+        schemaOut[f] = fields[i];
+    }
+    return schemaOut;
+}
+
 module.exports = {
     flattenSchemaFields: flattenSchemaFields,
     projectSchema: projectSchema,
     analyzeSchema: analyzeSchema,
     extractSchema: extractSchema,
+    mergeSchema: mergeSchema,
+    expandSchema: expandSchema,
+    sortSchema: sortSchema,
 }

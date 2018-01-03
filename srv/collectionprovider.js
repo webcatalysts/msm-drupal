@@ -17,16 +17,30 @@ CollectionProvider.prototype.getCollection = async function(callback) {
     };
 }
 
-CollectionProvider.prototype.find = async function(query = {}) {
+CollectionProvider.prototype.find = async function(query = {}, project = null, sort = null, limit = null, skip = null) {
     let dbsrv = await this.getCollection();
-    let docs = await dbsrv.col.find(query).toArray();
+    let cursor = dbsrv.col.find(query);
+    if (project) {
+        cursor.project(project);
+    }
+    if (limit) {
+        cursor.limit(limit);
+    }
+    if (skip) {
+        cursor.skip(skip);
+    }
+    if (sort) {
+        console.log(sort);
+        cursor.sort(sort);
+    }
+    let result = await cursor.toArray();
     dbsrv.con.close();
-    return docs;
+    return result;
 }
 
-CollectionProvider.prototype.findOne = async function (query = {}) {
+CollectionProvider.prototype.findOne = async function (query = {}, options = {}) {
     let dbsrv = await this.getCollection();
-    let doc = await dbsrv.col.findOne(query);
+    let doc = await dbsrv.col.findOne(query, options);
     dbsrv.con.close();
     return doc;
 }
@@ -68,11 +82,27 @@ CollectionProvider.prototype.save = async function(id, data, callback) {
 
 CollectionProvider.prototype.analyzeSchema = async function (collectionId, options = {}) {
     var schema = require('./schema');
+    options = Object.assign({}, { merge: true }, options);
     let collection = await this.findOne({_id: collectionId});
     let con = await this.databaseWrapper.connect();
 
     let result = await schema.analyzeSchema(con, collection.database, collection.collection, options);
     let schemaResult = await schema.extractSchema(con, result.dbName, result.colName);
+    if (collection.schema && options.merge) {
+        //schemaResult = Object.assign(collection.schema, schemaResult);
+        //schemaResult = schema.mergeSchema(collection.schema, schemaResult); 
+        var sfields = schema.flattenSchemaFields(collection.schema);
+        for (var f in sfields) {
+            Object.assign(sfields[f], {
+                percentContaining: 0,
+                totalOccurrances: 0,
+            });
+        }
+        schema.expandSchema(sfields,true);
+        schemaResult = schema.mergeSchema(schemaResult, schema.expandSchema(sfields));
+        //schemaResult = schema.mergeSchema(schemaResult, collection.schema); 
+    }
+    //return this.save(collection._id, { '$set': { 'schema': schema.sortSchema(schemaResult) } });
     return this.save(collection._id, { '$set': { 'schema': schemaResult } });
     return new Promise(function (fulfill, reject) {
         schema.analyzeSchema(con, collection.database, collection.collection, options)
@@ -81,7 +111,7 @@ CollectionProvider.prototype.analyzeSchema = async function (collectionId, optio
             })
             .then(function (schema) {
                 con.close();
-                return this.save(collection._id, { "$set": { "schema": schema } });
+                return this.save(collection._id, { "$set": { "schema": schema }, "enabled": true, });
             })
             .then(function (saveResult) {
                 fulfill(saveResult);
@@ -116,8 +146,8 @@ CollectionProvider.prototype.query = async function (collectionId, params = {}) 
     };
 
     if (collection.preExecute) {
-        eval('var preExecute = function (document, collection, params, result) { ' + collection.preExecute + ' }');
-        preExecute(collection, col, params, result);
+        eval('var preExecute = async function (document, collection, params, result) { ' + collection.preExecute + ' }');
+        await preExecute(collection, col, params, result);
     }
 
     var cursor = col.find(params.query);
@@ -126,6 +156,12 @@ CollectionProvider.prototype.query = async function (collectionId, params = {}) 
     if (result.totalResults) {
         if (params.project) {
             cursor.project(params.project);
+            var schema = require('./schema');
+            result.schema = schema.projectSchema(params.project, result.schema);
+        }
+        if (params.sort) {
+            console.log(params.sort);
+            cursor.sort(params.sort);
         }
         if (params.skip) {
             cursor.skip(1*params.skip);

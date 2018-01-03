@@ -62,21 +62,22 @@ function msm_database_view($db) {
       '#links' => array(),
       '#attributes' => array('class' => array('links', 'inline')),
     );
-    if (isset($col['schemaImported']) || isset($col['analyzingSchema'])) {
-      $actions['#links']['reset_schema'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/reset', $col['_id']),
-        'title' => t('Reset Schema'),
-      );
-    }
-    if (!empty($col['type']) || $col['enabled']) {
+    $has_schema = !empty($col['schema']);
+    if ($has_schema) {
       $actions['#links']['manage_schema'] = array(
         'href' => sprintf('admin/structure/msm/col/%s/schema', $col['_id']),
         'title' => t('Manage Schema'),
       );
-      $actions['#links']['delete'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/delete', $col['_id']),
-        'title' => t('Delete'),
+      $actions['#links']['reset_schema'] = array(
+        'href' => sprintf('admin/structure/msm/col/%s/reset', $col['_id']),
+        'title' => t('Reset Schema'),
       );
+      if (!isset($col['locked'])) {
+        $actions['#links']['delete'] = array(
+          'href' => sprintf('admin/structure/msm/col/%s/delete', $col['_id']),
+          'title' => t('Delete'),
+        );
+      }
     }
     else {
       if (empty($col['type']) && !isset($col['analyzingSchema'])) {

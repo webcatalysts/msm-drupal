@@ -40,9 +40,12 @@ function msm_schema_form($form, &$form_state, array $collection) {
   );
   $form['actions']['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Save'),
+    '#value' => t('Continue'),
   );
-
+  $form['actions']['update'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save and Edit'),
+  );
   $form['schema'] = msm_schema_widget($schema, $ajax, $collection['type'] == 'custom');
 
   if ($collection['type'] == 'custom') {
@@ -130,10 +133,13 @@ function msm_schema_form_submit($form, &$form_state) {
   $collectionId = $form['#collection']['_id'];
   $result = msm_post(sprintf('collection/%s/update', $collectionId), array(
     '$set' => array(
-      'schema' => $form_state['schema'],
+      'schema' => msm_schema_sort($form_state['schema']),
     ),
   ));
   if ($result['ok']) {
+    if ($form_state['triggering_element']['#value'] != t('Continue')) {
+      return;
+    }
     if (!empty($form['#collection']['schemaImported'])) {
       $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/view', $collectionId);
     }
@@ -214,7 +220,7 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
     $widget['type'] = array(
       '#title' => t('Field type'),
       '#type' => 'select',
-      '#options' => msm_schema_field_type_options(empty($info['children']) || count($info['children'])),
+      '#options' => msm_schema_field_type_options(!empty($info['children'])),
       '#default_value' => $info['type'],
     );
   }
@@ -296,6 +302,7 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
     '#type' => 'select',
     '#options' => array_combine($weights, $weights),
     '#default_value' => $info['display']['weight'] === null ? 0 : $info['display']['weight'],
+    '#element_validate' => array('msm_schema_validate_integer'),
   );
   $widget['display']['priority'] = array(
     '#title' => t('Priority'),
@@ -338,6 +345,17 @@ function msm_schema_field_widget($name, $info, &$progress, array $ajax, $editabl
     );
   }
   $widget['#title'] = msm_schema_widget_progress_title($name, $progress['fields'][$name]);
+  $field_vars = array_keys($info);
+  $widget_vars = element_children($widget);
+  sort($field_vars);
+  sort($widget_vars);
+  $passthru = array_diff($field_vars, $widget_vars);
+  foreach ($passthru AS $pt) {
+    $widget[$pt] = array(
+      '#type' => 'value',
+      '#value' => $info[$pt],
+    );
+  }
   return $widget;
 }
 
@@ -376,6 +394,8 @@ function msm_schema_field_type_options($has_children = FALSE) {
       'text' => t('Text'),
       'int' => t('Number'),
       'float' => t('Decimal'),
+      'boolean' => t('Boolean (True or False)'),
+      'date' => t('Date'),
     );
   }
   return $options;
@@ -411,6 +431,9 @@ function msm_schema_field_operator_options($field_type) {
     'first' => t('$first'),
     'sum' => t('$sum'),
     'avg' => t('$avg'),
+    'max' => t('$max'),
+    'min' => t('$min'),
+    'addToSet' => t('$addToSet'),
   );
   switch ($field_type) {
     default:
@@ -432,4 +455,10 @@ function msm_schema_field_filter_type_options() {
     'selectOne' => t('Select'),
     'selectMany' => t('Select Multiple'),
   );
+}
+
+function msm_schema_validate_integer(&$element, &$form_state) {
+  $parents = $element['#parents'];
+  $value =& drupal_array_get_nested_value($form_state['values'], $parents);
+  $value = (int)$value;
 }

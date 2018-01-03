@@ -8,6 +8,7 @@
         "express": "3.x",
         "fs": "0.0.1-security",
         "mongodb": "^2.2.33",
+        "node-rest-client": "^3.1.0",
         "promise": "^8.0.1",
         "url-parse": "^1.2.0",
         "variety-cli": "^0.4.3"
@@ -24,7 +25,7 @@
     },
     "scripts": {
         "start": "node server.js",
-        "start-dev": "./node_modules/.bin/nodemon server.js",
+        "start-dev": "export TZ='America/New_York'; ./node_modules/.bin/nodemon server.js",
         "test": "IP=0.0.0.0 PORT=3030 mocha --timeout 5000 tests/*_test.js"
     }
 }

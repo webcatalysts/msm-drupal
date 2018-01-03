@@ -1,7 +1,12 @@
 <?php
 
 function msm_collection_list() {
-  $collections = msm_request('collections');
+  $collections = msm_post('collections', [
+    'project' => ['name' => 1, 'database' => 1, 'collection' => 1, 'type' => 1,
+      'enabled' => 1, 'source' => 1, 'dependencies' => 1,
+    ],
+    'sort' => ['weight' => 1, 'name' => 1, '_id' => 1],
+  ]);
   dsm($collections);
   $build = array();
   $build['list'] = array(
@@ -12,6 +17,8 @@ function msm_collection_list() {
       t('Collection'),
       t('Type'),
       t('Status'),
+      t('Source Collection'),
+      t('Dependencies'),
       t('Actions'),
     ),
     '#rows' => array(),
@@ -68,30 +75,113 @@ function msm_collection_list() {
       'href' => sprintf('admin/structure/msm/col/%s/delete', $col['_id']),
       'title' => t('Delete'),
     );
+    $dependencies = sprintf('<em>%s</em>', t('None'));
+    if (!empty($col['dependencies'])) {
+      $dependencies = array(
+        '#theme' => 'links',
+        '#links' => array(),
+      );
+      foreach ($col['dependencies'] AS $dep) {
+        $dependencies['#links'][] = array(
+          'title' => $dep,
+          'href' => sprintf('admin/structure/msm/col/%s', $dep),
+        );
+      }
+      $dependencies = render($dependencies);
+    }
+    $source = !empty($col['source']) ? l($col['source'], 'admin/structure/msm/col/%s') : 'n/a';
     $build['list']['#rows'][] = array(
       l($col['name'], sprintf('admin/structure/msm/col/%s', $col['_id'])),
       l($col['database'], sprintf('admin/structure/msm/db/%s', $col['database'])),
       $col['collection'],
       empty($col['type']) ? 'n/a' : $col['type'],
       $col['enabled'] ? t('Enabled') : t('Disabled'),
+      $source,
+      $dependencies,
       render($actions),
     );
   }
   return $build;
 }
 
-function msm_collection_view(array $collection) {
-  if (!empty($collection['schema'])) {
-    $build['schema'] = array(
-      '#theme' => 'msm_schema_table',
-      '#schema' => $collection['schema'],
-      '#flatten' => TRUE,
+function msm_collection_view(array $collection, array $options = array()) {
+  $options += array(
+    'info' => TRUE,
+    'schema_info' => TRUE,
+    'schema' => TRUE,
+  );
+  $module_path = drupal_get_path('module', 'msm');
+  $build = array(
+    '#theme' => 'msm_collection_view',
+    '#attached' => array(
+      'css' => array($module_path . '/css/collection-view.css'),
+    ),
+  );
+  $has_schema = !empty($collection['schema']);
+  if ($options['info']) {
+    $count = msm_request(sprintf('collection/%s/count', $collection['_id']));
+    if ($count['ok']) {
+        $count = $count['count'];
+    }
+    else $count = 'err';
+
+    $build['#info'] = array(
+      '#theme' => 'msm_info',
+      '#title' => t('Collection details'),
+      '#items' => array(
+        '_id' => array(t('Collection ID'), $collection['_id']),
+        'name' => array(t('Name/Label'), $collection['name']),
+        'collection' => array(t('Collection Name'), $collection['collection']),
+        'database' => array(t('Database'), l($collection['database'], 'admin/structure/msm/db/' . $collection['collection'])),
+        'type' => array(t('Collection Type'), $collection['type']),
+        'schema' => array(t('Has Schema'), $has_schema ? t('Yes') : t('No')),
+        'totalDocuments' => array(t('Total Documents'), number_format($count, 0)),
+      ),
     );
+    if (!empty($collection['source'])) {
+      $build['#info']['items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/structure/msm/col/' . $collection['source']));
+    }
   }
-  else {
-    $build['schema'] = array(
-      '#markup' => t('No schema exists yet.'),
+  if ($options['schema_info'] && $has_schema) {
+    $fields = msm_schema_flatten_fields($collection['schema'], MSM_SCHEMA_FLATTEN_ALL);
+    $build['#schema_info'] = array(
+      '#theme' => 'msm_info',
+      '#title' => t('Schema breakdown'),
+      '#items' => array(
+        'total_fields' => array(t('Total fields'), count($fields)),
+      ),
     );
+    $unused_fields = array();
+    $counts = [];
+    foreach ($fields AS $field_name => $field) {
+      if (isset($field['percentContaining']) && $field['percentContaining'] <= 0) {
+        $unused_fields[] = $field_name;
+      }
+      $type = $field['type'];
+      if (!isset($counts[$type])) $counts[$type] = 0;
+      $counts[$type]++;
+    }
+    foreach ($counts AS $type => $count) {
+      $build['#schema_info']['#items'][] = array(ucfirst($type), $count);
+    }
+    if ($unused_fields) {
+      $build['#schema_info']['#items'][] = array(t('Unused fields'), theme('item_list', array('items' => $unused_fields)));
+    }
+  }
+  if ($options['schema']) {
+    if (!empty($collection['schema'])) {
+      $build['#schema'] = array(
+        '#prefix' => sprintf('<h3>%s</h3>', t('Schema')),
+        '#theme' => 'msm_schema_table',
+        '#schema' => msm_schema_sort($collection['schema']),
+        '#flatten' => TRUE,
+      );
+    }
+    else {
+      $build['#schema'] = array(
+        '#markup' => t('No schema exists yet.'),
+      );
+    }
   }
   return $build;
 }
@@ -318,6 +408,15 @@ function msm_collection_settings_form($form, &$form_state, array $collection) {
     'postExecute' => NULL,
     'type' => 'existing',
     'persist' => FALSE,
+    'weight' => 0,
+  );
+  $weight_options = range(-300, 300);
+  $form['weight'] = array(
+      '#type' => 'select',
+      '#title' => t('Weight'),
+      '#required' => TRUE,
+      '#options' => array_combine($weight_options, $weight_options),
+      '#default_value' => $collection['weight'],
   );
   $form['process'] = array(
     '#tree' => FALSE,
@@ -388,7 +487,13 @@ function msm_collection_settings_form_validate($form, &$form_state) {
 function msm_collection_settings_form_submit($form, &$form_state) {
   $fields = array('preExecute', 'postExecute', 'preProcess', 'postProcess');
   $values = $form_state['values'];
-  $update = array('$set' => array('enabled' => (bool)$values['enabled']), '$unset' => array());
+  $update = array(
+    '$set' => array(
+      'enabled' => (bool)$values['enabled'],
+      'weight' => (int)$values['weight'],
+    ),
+    '$unset' => array(),
+  );
   $collectionId = $form['#collection']['_id'];
   foreach ($fields AS $f) {
     if (empty($values[$f])) {
@@ -399,7 +504,6 @@ function msm_collection_settings_form_submit($form, &$form_state) {
   if (empty($update['$unset'])) {
     unset($update['$unset']);
   }
-  dsm($update);
   $result = msm_post(sprintf('collection/%s/update', $collectionId), $update);
   if ($result['ok']) {
     $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/view', $collectionId);
@@ -421,7 +525,6 @@ function msm_collection_endpoint_form($form, &$form_state, array $collection) {
     'sort' => null,
   );
   $result = msm_post(sprintf('collection/%s/query', $collection['_id']), $params);
-  dsm($result);
   $html_id = drupal_html_class(__FUNCTION__);
   $form['#prefix'] = sprintf('<div id="%s">', $html_id);
   $form['#suffix'] = '</div>';

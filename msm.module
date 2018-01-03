@@ -28,6 +28,15 @@ function msm_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 100,
   );
+  $items['admin/structure/msm/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Configure MSM Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_settings_form'),
+    'access arguments' => array('administer msm'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 99,
+  );
   $items['admin/structure/msm/col'] = array(
     'title' => 'Collections',
     'type' => MENU_DEFAULT_LOCAL_TASK,
@@ -93,21 +102,6 @@ function msm_menu() {
   );
   $items['admin/structure/msm/col/%msm_collection/schema'] = array(
     'title' => 'Schema',
-    'page callback' => 'msm_collection_schema_view',
-    'page arguments' => array(4),
-    'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'schema-view'),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => $inc_path,
-    'file' => 'collection.inc',
-  );
-  $items['admin/structure/msm/col/%msm_collection/schema/view'] = array(
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'title' => 'View',
-    'weight' => -10,
-  );
-  $items['admin/structure/msm/col/%msm_collection/schema/edit'] = array(
-    'title' => 'Edit Schema',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_schema_form', 4),
     'access callback' => 'msm_collection_access',
@@ -116,6 +110,21 @@ function msm_menu() {
     'file path' => $inc_path,
     'file' => 'schema_form.inc',
     'weight' => -1,
+  );
+  $items['admin/structure/msm/col/%msm_collection/schema/view'] = array(
+    'title' => 'View',
+    'page callback' => 'msm_collection_schema_view',
+    'page arguments' => array(4),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(4, 'schema-view'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+  );
+  $items['admin/structure/msm/col/%msm_collection/schema/edit'] = array(
+    'title' => 'Edit',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
   );
   $items['admin/structure/msm/col/%msm_collection/schema/analyze'] = array(
     'title' => 'Analyze Schema',
@@ -259,6 +268,19 @@ function msm_menu() {
 function msm_theme() {
   $path = drupal_get_path('module', 'msm') . '/theme';
   return array(
+    'msm_info' => array(
+      'variables' => array('items' => array(), 'title' => null),
+      'file' => 'msm.theme.inc',
+    ),
+    'msm_collection_view' => array(
+      'template' => 'msm-collection-view',
+      'variables' => array(
+        'info' => array(),
+        'schema_info' => array(),
+        'schema' => array(),
+      ),
+      'path' => $path,
+    ),
     'msm_schema_table' => array(
       'variables' => array('schema' => array(), 'flatten' => TRUE),
       'file' => 'msm.theme.inc',
@@ -389,6 +411,7 @@ function msm_collection_access($collection, $op = null) {
     switch ($op) {
       case 'view':
       case 'schema-view':
+      case 'schema-analyze':
         return TRUE;
       case 'delete':
         return !$collection['published'];
@@ -398,8 +421,6 @@ function msm_collection_access($collection, $op = null) {
         return !empty($collection['schema']);
       case 'schema-reset':
       case 'reset':
-        return !empty($collection['schema']) && !$collection['published'];
-      case 'schema-analyze':
         return empty($collection['schema']);
       case 'endpoint':
         return $collection['enabled'];
@@ -434,7 +455,8 @@ function msm_collection_access($collection, $op = null) {
     case 'reset':
       return !empty($collection['schema']);
     case 'schema-analyze':
-      return empty($collection['schema']);
+    case 'analyze':
+      return !isset($collection['locked']);
     case 'settings':
       return !empty($collection['schema']);
     case 'endpoint':
@@ -455,6 +477,8 @@ function msm_schema_flatten_fields($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS, 
   $result = array();
   foreach ($schema AS $f => $v) {
     $cns = $ns ? sprintf('%s.%s', $ns, $f) : $f;
+    $v += array('display' => array());
+    $v['display'] += array('weight' => 0);
     if ($ns) {
       $v['parent'] = $ns;
     }
@@ -464,14 +488,14 @@ function msm_schema_flatten_fields($schema, $types = MSM_SCHEMA_FLATTEN_FIELDS, 
         $result[$cns] = $v;
       }
       if (!empty($v['children'])) {
-        $result = array_merge(msm_schema_flatten_fields($v['children'], $types, $cns), $result);
+        //$result = array_merge(msm_schema_flatten_fields($v['children'], $types, $cns), $result);
+        $result = array_merge($result, msm_schema_flatten_fields($v['children'], $types, $cns));
       }
     }
     elseif ($types & MSM_SCHEMA_FLATTEN_FIELDS) {
       $result[$cns] = $v;
     }
   }
-  ksort($result);
   return $result;
 }
 
@@ -536,4 +560,149 @@ function msm_collection_options() {
     }
   }
   return $options;
+}
+
+function msm_schema_sort($schema, $ns = null) {
+  uasort($schema, function ($a, $b) {
+    $a += array('display' => array());
+    $b += array('display' => array());
+    $a['display'] += array('weight' => 0);
+    $b['display'] += array('weight' => 0);
+    if ($a['display']['weight'] < $b['display']['weight']) return -1;
+    if ($a['display']['weight'] > $b['display']['weight']) return 1;
+    return 0;
+  });
+  foreach (array_keys($schema) AS $fn) {
+      if (!empty($schema[$fn]['children'])) {
+          $schema[$fn]['children'] = msm_schema_sort($schema[$fn]['children']);
+      }
+  }
+  return $schema;
+}
+
+function msm_collection_info($collection, array $options = array()) {
+  $options += array(
+    'info' => TRUE,
+    'schema_info' => TRUE,
+  );
+  $build = array();
+  $has_schema = !empty($collection['schema']);
+  if ($options['info']) {
+    $count = msm_request(sprintf('collection/%s/count', $collection['_id']));
+    $build['info'] = array(
+      '#theme' => 'msm_info',
+      '#items' => array(
+        '_id' => array(t('Collection ID'), $collection['_id']),
+        'name' => array(t('Name/Label'), $collection['name']),
+        'collection' => array(t('Collection Name'), $collection['collection']),
+        'database' => array(t('Database'), l($collection['database'], 'admin/structure/msm/db/' . $collection['collection'])),
+        'type' => array(t('Collection Type'), $collection['type']),
+        'schema' => array(t('Has Schema'), $has_schema ? t('Yes') : t('No')),
+        'totalDocuments' => array(t('Total Documents:', number_format($count, 0))),
+      ),
+    );
+    if (!empty($collection['source'])) {
+      $build['info']['items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/structure/msm/col/' . $collection['source']));
+    }
+  }
+  if ($options['schema_info'] && $has_schema) {
+    $fields = msm_schema_flatten_fields($collection['schema'], MSM_SCHEMA_FLATTEN_ALL);
+    $build['schema_info'] = array(
+      '#theme' => 'msm_info',
+      '#items' => array(
+        'total_fields' => array(t('Total fields'), count($fields)),
+      ),
+    );
+    $unused_fields = array();
+    $counts = [];
+    foreach ($fields AS $field_name => $field) {
+      if (isset($field['percentContaining']) && $field['percentContaining'] <= 0) {
+        $unused_fields[] = $field_name;
+      }
+      $type = $field['type'];
+      if (!isset($counts[$type])) $counts[$type] = 0;
+      $counts[$type]++;
+    }
+    foreach ($counts AS $type => $count) {
+      $build['schema_info']['#items'][] = array(ucfirst($type), $count);
+    }
+    if ($unused_fields) {
+      $build['schema_info']['#items'][] = array(t('Unused fields'), theme('item_list', array('items' => $unused_fields)));
+    }
+  }
+  return $build;
+}
+
+function &msm_settings() {
+  $values =& drupal_static(__FUNCTION__);
+  if (!isset($values)) {
+    $values = msm_request('settings');
+  }
+  return $values;
+}
+
+function msm_setting_get($name, $default = NULL) {
+  $settings = msm_settings();
+  return isset($settings[$name]) ? $settings[$name] : $default;
+}
+
+function msm_setting_set($name, $value) {
+  $result = msm_post(sprintf('setting/%s', $name), $value);
+  dsm($result);
+  drupal_static_reset('msm_settings');
+}
+
+function msm_settings_form($form, &$form_state, $settings = NULL) {
+  if (!empty($form_state['values']['settings'])) {
+    $settings = $form_state['values']['settings'];
+  }
+  elseif ($settings === NULL) {
+    $settings = msm_request('settings');
+  }
+  $form['settings'] = array(
+    '#tree' => TRUE,
+  );
+  $settings += array(
+    'evalonboot' => NULL,
+    'collectionpreprocess' => NULL,
+    'collectionpostprocess' => NULL,
+  );
+  $form['settings']['evalonboot'] = array(
+    '#title' => t('On Bootup'),
+    '#type' => 'text_format',
+    '#format' => 'catalyst_js',
+    '#default_value' => $settings['evalonboot'],
+    '#element_validate' => array('msm_text_format_validate'),
+    '#after_build' => array('msm_text_format_after_build'),
+    '#rows' => 30,
+  );
+  $form['settings']['collectionpreprocess'] = array(
+    '#title' => t('Collection PreProcess'),
+    '#type' => 'text_format',
+    '#format' => 'catalyst_js',
+    '#default_value' => $settings['collectionpreprocess'],
+    '#element_validate' => array('msm_text_format_validate'),
+    '#after_build' => array('msm_text_format_after_build'),
+    '#rows' => 30,
+  );
+  $form['settings']['collectionpostprocess'] = array(
+    '#title' => t('Collection PostProcess'),
+    '#type' => 'text_format',
+    '#format' => 'catalyst_js',
+    '#default_value' => $settings['collectionpostprocess'],
+    '#element_validate' => array('msm_text_format_validate'),
+    '#after_build' => array('msm_text_format_after_build'),
+    '#rows' => 30,
+  );
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Update System Settings'),
+  );
+  return $form;
+}
+
+function msm_settings_form_submit($form, &$form_state) {
+  dsm($form_state);
+  $result = msm_post('settings', $form_state['values']['settings']);
 }

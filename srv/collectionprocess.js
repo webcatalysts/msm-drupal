@@ -7,6 +7,53 @@ var CollectionProcess = function (collectionId, databaseWrapper, databaseProvide
     this.collectionId = collectionId;
 }
 
+CollectionProcess.prototype.runAll = async function () {
+    this.db = await this.databaseProvider.getDatabase();
+    this.storageCollection = this.db.collection('msm_process');
+
+    console.log('Starting Run All Process.');
+    await this.startRun();
+    console.log('Getting next item..');
+    while (this.runAllNext()) {
+        this.storageCollection.save({collectionId: this.collection._id});
+        console.log(this.collection._id);
+    }
+    console.log('Run All Process Complete.');
+}
+
+CollectionProcess.prototype.startRun = async function () {
+    var timeout = 1999;
+    let check = true;
+    while (timeout > 0) {
+        check = await this.checkProcess(false);
+        if (check) {
+            console.log('Another process is already running.');
+            wait(500);
+            timeout +=-500;
+        }
+        else break;
+    }
+    if (timeout <= 0) {
+        console.log('Operation timed out..');
+        return;
+    }
+    this.items = await this.collectionProvider.find({
+        enabled: true,
+    }, {}, { weight: 1 });
+}
+
+CollectionProcess.prototype.checkProcess = async function () {
+    return await this.storageCollection.count();
+}
+
+CollectionProcess.prototype.runAllNext = function () {
+    if (this.collection = this.items.current()) {
+        this.collectionId = this.collection._id;
+        return (typeof this.collection === 'undefined');
+    }
+    return false;
+}
+
 CollectionProcess.prototype.run = async function () {
     this.collection = await this.collectionProvider.findOne({_id: this.collectionId});
     if (!this.collection.source) {
@@ -21,42 +68,8 @@ CollectionProcess.prototype.run = async function () {
         throw new Error('Source collection %s is empty.');
     }
 
-    switch (this.collection.type) {
-        case 'mapReduce':
-            var handler = CollectionProcessHandlerMapReduce;
-            break;
-        case 'aggregation':
-            var handler = CollectionProcessHandlerAggregation;
-            break;
-        case 'custom':
-            var handler = CollectionProcessHandlerCustom;
-            break;
-        default:
-            throw new Error('Unknown collection type or invalid collection.');
-    }
-
     var result = {};
-    if (this.collection.preProcess) {
-        console.log('Pre-processing: %s', this.collection._id);
-        eval('var preProcess = async function(instance, result) { ' + this.collection.preProcess + '};');
-        await preProcess(this, result); 
-    }
-    console.log('Processing collection: %s', this.collection._id);
-    await handler(this, result);
-    console.log('Successfully processed collection: ', this.collection._id);
-    if (this.collection.postProcess) {
-        console.log('Post-processing: %s', this.collection._id);
-        eval('var postProcess = function(instance, result) { ' + this.collection.postProcess + '};');
-        await postProcess(this, result);
-    }
-}
-
-var ProcessMapReduce = function (instance, callback) {
-}
-
-//var ProcessCustom = function (instance, callback) {
-async function CollectionProcessHandlerCustom (instance, result) {
-    console.log('Processing custom eval collection: ', instance.collection._id);
+    var instance = this;
     let con = await instance.databaseWrapper.connect();
     var sourceDatabaseName = instance.source.database;
     var sourceDatabase = con.db(sourceDatabaseName);
@@ -82,10 +95,46 @@ async function CollectionProcessHandlerCustom (instance, result) {
             }
         }
     }
-    eval('var evalCustom = async function () { ' + instance.collection.eval.code + ' };');
-    await evalCustom();
-    con.close();
+    if (instance.collection.preProcess) {
+        console.log('Pre-processing: %s', instance.collection._id);
+        eval('var preProcess = async function(instance, result) { ' + instance.collection.preProcess + '};');
+        await preProcess(instance, result); 
+    }
+    var callback = async function (err, res) {
+        if (err) {
+            console.log('Failed to process %s: %s', instance.collection._id, err);
+            con.close();
+        }
+        else {
+            if (!instance.collection.schemaCustomized) {
+                await instance.collectionProvider.analyzeSchema(instance.collectionId);
+            }
+            console.log('Successfully processed collection: ', instance.collection._id);
+            if (instance.collection.postProcess) {
+                console.log('Post-processing: %s', instance.collection._id);
+                eval('var postProcess = function(instance, result) { ' + instance.collection.postProcess + '};');
+                await postProcess(instance, result);
+            }
+            con.close();
+        }
+    }
+    console.log('Processing collection: %s', instance.collection._id);
+    switch (instance.collection.type) {
+        case 'mapReduce':
+            break;
     return true;
+            break;
+        case 'aggregation':
+            var handler = CollectionProcessHandlerAggregation;
+            break;
+        case 'custom':
+            console.log('Processing custom eval collection: ', instance.collection._id);
+            eval('var evalCustom = async function () { ' + instance.collection.eval.code + ' };');
+            await evalCustom();
+            break;
+        default:
+            throw new Error('Unknown collection type or invalid collection.');
+    }
 }
 
 module.exports = {

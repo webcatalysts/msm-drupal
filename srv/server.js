@@ -1,19 +1,39 @@
 var express = require('express'),
     app     = express(),
     config = require('./config'),
+    SettingsProvider = require('./settingsprovider').SettingsProvider,
     DatabaseWrapper = require('./databasewrapper').DatabaseWrapper,
     DatabaseProvider = require('./databaseprovider').DatabaseProvider,
     CollectionProvider = require('./collectionprovider').CollectionProvider;
 
+
+config = Object.assign({
+    applicationDatabase: 'msm',
+    settingsCollectionName: 'msm_settings',
+    databasesCollectionName: 'msm_databases',
+    collectionsCollectionName: 'msm_collections',
+}, config);
 
 var port     = process.env.PORT || 3000,
     ip       = process.env.IP || '0.0.0.0';
     mongoURL = config.db.uri;
 
 var databaseWrapper = new DatabaseWrapper(mongoURL);
+var settingsProvider = new SettingsProvider(databaseWrapper, config.settingsCollectionName);
 var databaseProvider = new DatabaseProvider(databaseWrapper, 'msm');
 var collectionProvider = new CollectionProvider(databaseWrapper, databaseProvider, 'msm');
 databaseProvider.setCollectionProvider(collectionProvider);
+
+var settings = {};
+
+var bootUp = async function () {
+    settings = await settingsProvider.load();
+    console.log(settings);
+    if (settings.evalonboot) {
+        eval(settings.evalonboot);
+    }
+}
+bootUp();
 
 app.configure(function() {
     app.set('port', port);
@@ -101,6 +121,16 @@ app.get('/database/:db/count/:col', async function (req, res) {
 app.get('/collections', async function (req, res) {
     let docs = await collectionProvider.find();
     res.send(docs);
+});
+
+app.post('/collections', async function (req, res) {
+    var query = req.body.query || {};
+    var project = req.body.project || null;
+    var limit = req.body.limit || null;
+    var skip = req.body.skip || null;
+    var sort = req.body.sort || null;
+    let result = await collectionProvider.find(query, project, sort, limit, skip);
+    res.send(result);
 });
 
 app.get('/collections/:db', async function (req, res) {
@@ -221,6 +251,40 @@ app.get('/collection/:id/process', function (req, res) {
         console.log('Error processing collection: %s', error);
         res.status(500).send('Error processing collection: %s', error);
     }
+});
+
+app.get('/process', async function (req, res) {
+    let CollectionProcess = require('./collectionprocess').CollectionProcess;
+    try {
+        console.log('Processing ALL');
+        let collectionProcess = new CollectionProcess(
+            null,
+            databaseWrapper,
+            databaseProvider,
+            collectionProvider
+        );
+        console.log('Running colleciton process..');
+        collectionProcess.runAll();
+    }
+    catch (error) {
+        console.log('Error processing collection: %s', error);
+        res.status(500).send('Error processing collection: %s', error);
+    }
+    res.send({ok:1});
+});
+
+app.get('/settings', async function (req, res) {
+    let result = await settingsProvider.load();
+    res.send(result);
+});
+app.post('/settings', async function (req, res) {
+    if (Object.keys(req.body)) {
+        console.log(req.body);
+        let result = await settingsProvider.saveMany(req.body);
+        let settings = await settingsProvider.load();
+        res.send(settings);
+    }
+    else res.send(500, 'Empty request');
 });
 
 app.listen(port, ip);

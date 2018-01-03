@@ -141,7 +141,9 @@ dsm($update);
   $result = msm_post(sprintf($path, $collectionId), $update);
 
   if ($result['ok']) {
-    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema', $collectionId);
+    if ($form_state['triggering_element']['#value'] != t('Save and Process')) {
+      $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema', $collectionId);
+    }
   }
   else form_set_error('', t('An error has occured while attempting to update the collection: @error', array('@error' => $result['error'])));
 }

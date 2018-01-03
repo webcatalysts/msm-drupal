@@ -21,6 +21,11 @@ DatabaseWrapper.prototype.getCollection = async function (dbName, collectionName
     };
 }
 
+DatabaseWrapper.prototype.getDatabase = async function (dbName) {
+    await this.connect();
+    return this.connection.db(dbName);
+}
+
 DatabaseWrapper.prototype.close = function() {
     this.connection.close();
 }
