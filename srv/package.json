@@ -20,7 +20,7 @@
         "nodemon": "^1.12.1"
     },
     "engine": {
-        "node": "^8.9",
+        "node": ">=8.0.0",
         "npm": "*"
     },
     "scripts": {
