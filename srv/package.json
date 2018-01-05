@@ -1,7 +1,7 @@
 {
     "name": "msm",
     "description": "MongoDB Schema Manager",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "main": "server.js",
     "private": true,
     "dependencies": {
@@ -20,7 +20,7 @@
         "nodemon": "^1.12.1"
     },
     "engine": {
-        "node": "*",
+        "node": "^8.9",
         "npm": "*"
     },
     "scripts": {
