@@ -2,6 +2,7 @@ var express = require('express'),
     app     = express(),
     config = require('./config'),
     SettingsProvider = require('./settingsprovider').SettingsProvider,
+    TestProvider = require('./testprovider').TestProvider,
     DatabaseWrapper = require('./databasewrapper').DatabaseWrapper,
     DatabaseProvider = require('./databaseprovider').DatabaseProvider,
     CollectionProvider = require('./collectionprovider').CollectionProvider;
@@ -12,6 +13,7 @@ config = Object.assign({
     settingsCollectionName: 'msm_settings',
     databasesCollectionName: 'msm_databases',
     collectionsCollectionName: 'msm_collections',
+    ipWhitelist: ['127.0.0.1'],
 }, config);
 
 var port     = process.env.PORT || 3000,
@@ -22,6 +24,7 @@ var databaseWrapper = new DatabaseWrapper(mongoURL);
 var settingsProvider = new SettingsProvider(databaseWrapper, config.settingsCollectionName);
 var databaseProvider = new DatabaseProvider(databaseWrapper, 'msm');
 var collectionProvider = new CollectionProvider(databaseWrapper, databaseProvider, 'msm');
+var testProvider = new TestProvider(databaseWrapper, 'msm');
 databaseProvider.setCollectionProvider(collectionProvider);
 
 var settings = {};
@@ -38,6 +41,13 @@ bootUp();
 app.configure(function() {
     app.set('port', port);
     app.use(express.bodyParser());
+});
+
+process.on('uncaughtException', function (err) {
+    console.log(err);
+});
+process.on('unhandledRejection', function (err) {
+    console.log(err);
 });
 
 // Get the db server status
@@ -224,7 +234,7 @@ app.post('/collection/:id/process', async function (req, res) {
             collectionProvider
         );
         console.log('Successfully updated collection: %s. Running colleciton process..', req.params.id);
-        collectionProcess.run();
+        collectionProcess.run({analyzeSchema:true});
         res.send({ok: 1});
     }
     catch (error) {
@@ -244,7 +254,7 @@ app.get('/collection/:id/process', function (req, res) {
             collectionProvider
         );
         console.log('Successfully updated collection: %s. Running colleciton process..', req.params.id);
-        collectionProcess.run();
+        collectionProcess.run({analyzeSchema:true});
         res.send({ok: 1});
     }
     catch (error) {
@@ -272,6 +282,17 @@ app.get('/process', async function (req, res) {
     }
     res.send({ok:1});
 });
+app.get('/process/list', async function (req, res) {
+    let CollectionProcess = require('./collectionprocess').CollectionProcess;
+    let collectionProcess = new CollectionProcess(
+        null,
+        databaseWrapper,
+        databaseProvider,
+        collectionProvider
+    );
+    await collectionProcess.startRun();
+    res.send(collectionProcess.items);
+});
 
 app.get('/settings', async function (req, res) {
     let result = await settingsProvider.load();
@@ -285,6 +306,37 @@ app.post('/settings', async function (req, res) {
         res.send(settings);
     }
     else res.send(500, 'Empty request');
+});
+
+app.get('/test/:id', async function (req, res) {
+    let testDoc = await testProvider.findOne({_id: req.params.id}, {_id: 1});
+    if (testDoc) {
+        res.json(testDoc);
+    }
+    else res.json(404, {ok: 0, error: "Test not found"});
+});
+
+app.post('/test/:id', async function (req, res) {
+    let result = await testProvider.save(req.params.id, req.body);
+    res.json(result);
+});
+app.get('/test/:id/run', async function (req, res) {
+    let testDoc = await testProvider.findOne({_id: req.params.id}, {_id: 1});
+    if (testDoc) {
+        testProvider.runTest(testDoc._id);
+        res.send({ok: 1});
+    }
+    else res.send(404, {ok: 0, error: "Test not found"});
+});
+
+app.get('/tests', async function (req, res) {
+    let result = await testProvider.find();
+    res.json(result);
+});
+
+app.get('/tests/run', async function (req, res) {
+    testProvider.runAllTests();
+    res.json({ok: 1});
 });
 
 app.listen(port, ip);

@@ -121,20 +121,15 @@ function mergeSchema(a,b) {
         var afv = afn.indexOf(f) !== -1 ? af[f] : false;
         var bfv = bfn.indexOf(f) !== -1 ? bf[f] : false;
         if (afv && bfv) {
-            //var v = Object.assign({}, afv, bfv);
-            console.log('merge field %s', f);
             var v = Object.assign({}, bfv, afv);
         }
         else if (afv) {
-            console.log('A field %s', f);
             var v = afv;
         }
         else if (bfv) {
-            console.log('B field %s', f);
             var v = bfv;
         }
         else {
-            console.log('Dropped field: %s', f);
             continue;
         }
         res[f] = v;
@@ -202,7 +197,7 @@ var schemaAnalysisBuildCode = function (colName, options) {
     return new Promise(function (fulfill, reject) {
         fs.readFile(libpath, {}, function (err, data) {
             if (err) {
-                console.log(err);
+                console.log('Error: %s', err);
                 reject(err);
             }
             else {

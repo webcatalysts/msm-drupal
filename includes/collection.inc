@@ -89,7 +89,7 @@ function msm_collection_list() {
       }
       $dependencies = render($dependencies);
     }
-    $source = !empty($col['source']) ? l($col['source'], 'admin/structure/msm/col/%s') : 'n/a';
+    $source = !empty($col['source']) ? l($col['source'], sprintf('admin/structure/msm/col/%s', $col['source'])) : 'n/a';
     $build['list']['#rows'][] = array(
       l($col['name'], sprintf('admin/structure/msm/col/%s', $col['_id'])),
       l($col['database'], sprintf('admin/structure/msm/db/%s', $col['database'])),
@@ -113,9 +113,6 @@ function msm_collection_view(array $collection, array $options = array()) {
   $module_path = drupal_get_path('module', 'msm');
   $build = array(
     '#theme' => 'msm_collection_view',
-    '#attached' => array(
-      'css' => array($module_path . '/css/collection-view.css'),
-    ),
   );
   $has_schema = !empty($collection['schema']);
   if ($options['info']) {
@@ -132,14 +129,27 @@ function msm_collection_view(array $collection, array $options = array()) {
         '_id' => array(t('Collection ID'), $collection['_id']),
         'name' => array(t('Name/Label'), $collection['name']),
         'collection' => array(t('Collection Name'), $collection['collection']),
-        'database' => array(t('Database'), l($collection['database'], 'admin/structure/msm/db/' . $collection['collection'])),
-        'type' => array(t('Collection Type'), $collection['type']),
+        'database' => array(t('Database'), l($collection['database'], 'admin/structure/msm/db/' . $collection['database'])),
+        'type' => array(t('Collection Type'), isset($collection['type']) ? $collection['type'] : null),
         'schema' => array(t('Has Schema'), $has_schema ? t('Yes') : t('No')),
         'totalDocuments' => array(t('Total Documents'), number_format($count, 0)),
       ),
     );
     if (!empty($collection['source'])) {
-      $build['#info']['items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/structure/msm/col/' . $collection['source']));
+      $build['#info']['#items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/structure/msm/col/' . $collection['source']));
+    }
+    if (!empty($collection['dependencies'])) {
+        $deplinks = [];
+        foreach ($collection['dependencies'] AS $dep) {
+            $deplinks[] = array(
+                'href' => sprintf('admin/structure/msm/col/%s', $dep),
+                'title' => $dep,
+            );
+        }
+        $build['#info']['#items']['dependencies'] = array(
+            t('Dependencies: (@count)', array('@count' => count($collection['dependencies']))),
+            theme('links', array('links' => $deplinks))
+        );
     }
   }
   if ($options['schema_info'] && $has_schema) {
@@ -524,7 +534,9 @@ function msm_collection_endpoint_form($form, &$form_state, array $collection) {
     'project' => null,
     'sort' => null,
   );
+  dsm($params);
   $result = msm_post(sprintf('collection/%s/query', $collection['_id']), $params);
+  dsm($result);
   $html_id = drupal_html_class(__FUNCTION__);
   $form['#prefix'] = sprintf('<div id="%s">', $html_id);
   $form['#suffix'] = '</div>';

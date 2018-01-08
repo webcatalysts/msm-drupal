@@ -7,17 +7,18 @@
     "dependencies": {
         "express": "3.x",
         "fs": "0.0.1-security",
-        "mongodb": "^2.2.33",
+        "mongodb": "^2.2.34",
         "node-rest-client": "^3.1.0",
         "promise": "^8.0.1",
+        "sleep": "^5.1.1",
         "url-parse": "^1.2.0",
         "variety-cli": "^0.4.3"
     },
     "devDependencies": {
         "chai": "^4.1.2",
         "chai-http": "^3.0.0",
-        "mocha": "^4.0.1",
-        "nodemon": "^1.12.1"
+        "mocha": "^4.1.0",
+        "nodemon": "^1.14.8"
     },
     "engine": {
         "node": ">=8.0.0",

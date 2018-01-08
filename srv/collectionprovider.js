@@ -56,6 +56,7 @@ CollectionProvider.prototype.countDocuments = async function (colId, query = {},
     let collection = await this.findOne({_id: colId});
     let dbsrv = await this.databaseWrapper.getCollection(collection.database, collection.collection);
     let count = await dbsrv.col.count(query, options);
+    dbsrv.con.close();
     return count;
 }
 
@@ -103,7 +104,7 @@ CollectionProvider.prototype.analyzeSchema = async function (collectionId, optio
         //schemaResult = schema.mergeSchema(schemaResult, collection.schema); 
     }
     //return this.save(collection._id, { '$set': { 'schema': schema.sortSchema(schemaResult) } });
-    return this.save(collection._id, { '$set': { 'schema': schemaResult } });
+    return this.save(collection._id, { '$set': { 'schema': schemaResult, enabled: true } });
     return new Promise(function (fulfill, reject) {
         schema.analyzeSchema(con, collection.database, collection.collection, options)
             .then(function (result) {

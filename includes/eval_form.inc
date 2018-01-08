@@ -62,7 +62,7 @@ function msm_eval_form($form, &$form_state, array $collection) {
   );
   $help[] = array(
     'label' => 'source',
-    'value' => l($source['collection'], sprintf('admin/structure/msm/col/%s', $collection['_id'])),
+    'value' => l($source['collection'], sprintf('admin/structure/msm/col/%s', $collection['source'])),
     'description' => t('The source collection object.'),
   );
   $help[] = array(

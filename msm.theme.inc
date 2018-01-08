@@ -145,7 +145,7 @@ function theme_msm_schema_result_tree($variables) {
           if ($tot > $variables['slice']) {
             $ardisp = t('(Displaying @num of @tot objects)', array(
               '@num' => 3,
-              '@tot' => $variables['slice'],
+              '@tot' => $tot,
             ));
           }
           else {
@@ -175,7 +175,12 @@ function theme_msm_schema_result_tree($variables) {
       );
     }
     if ($display_usage) {
-      $row[] = sprintf('%s%%', number_format($field_info['percentContaining']));
+      if ($field_info['percentContaining'] < 1 && $field_info['percentContaining'] > 0) {
+        $row[] = sprintf('%s%%', number_format($field_info['percentContaining'], 3));
+      }
+      else {
+        $row[] = sprintf('%s%%', number_format($field_info['percentContaining']));
+      }
     }
     $rows[] = $row;
     if ($field_info['type'] == 'array' && !empty($field_info['children'])) {
