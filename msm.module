@@ -28,6 +28,16 @@ function msm_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 100,
   );
+  $items['admin/structure/msm/tests'] = array(
+    'title' => 'Tests',
+    'description' => 'View and run tests.',
+    'page callback' => 'msm_tests_page',
+    'access arguments' => array('administer msm'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 99,
+    'file path' => $inc_path,
+    'file' => 'tests.inc',
+  );
   $items['admin/structure/msm/settings'] = array(
     'title' => 'Settings',
     'description' => 'Configure MSM Settings',
