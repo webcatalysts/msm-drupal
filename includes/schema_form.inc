@@ -24,7 +24,7 @@ function msm_schema_form($form, &$form_state, array $collection) {
     $form['analyze_schema'] = array(
       '#type' => 'link',
       '#title' => t('Analyze & Import Schema'),
-      '#href' => sprintf('admin/structure/msm/db/%s/analyze-schema/%s', $collection['database'], $collection['collection']),
+      '#href' => sprintf('admin/msm/db/%s/analyze-schema/%s', $collection['database'], $collection['collection']),
     );
   }
 
@@ -141,10 +141,10 @@ function msm_schema_form_submit($form, &$form_state) {
       return;
     }
     if (!empty($form['#collection']['schemaImported'])) {
-      $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/view', $collectionId);
+      $form_state['redirect'] = sprintf('admin/msm/col/%s/view', $collectionId);
     }
     else {
-      $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/settings', $collectionId);
+      $form_state['redirect'] = sprintf('admin/msm/col/%s/settings', $collectionId);
     }
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));

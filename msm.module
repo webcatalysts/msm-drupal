@@ -12,188 +12,213 @@
 function msm_menu() {
   $items = array();
   $inc_path = drupal_get_path('module', 'msm') . '/includes';
-  $items['admin/structure/msm'] = array(
-    'title' => 'MongoDB Schema',
-    'description' => 'Manage and extend MongoDB schemas.',
-    'page callback' => 'msm_collection_list',
+  $items['admin/msm'] = array(
+    'title' => 'MongoDB Schema Manager',
+    'page callback' => 'system_admin_menu_block_page',
     'access arguments' => array('administer msm'),
-    'file path' => $inc_path,
-    'file' => 'collection.inc',
+    'file path' => drupal_get_path('module', 'system'),
+    'file' => 'system.admin.inc',
+    'menu_name' => 'management',
   );
-  $items['admin/structure/msm/status'] = array(
+
+  $items['admin/msm/status'] = array(
     'title' => 'API Status',
     'description' => 'Check the status of the msm api service.',
     'page callback' => 'msm_status_page',
     'access arguments' => array('administer msm'),
-    'type' => MENU_LOCAL_TASK,
     'weight' => 100,
   );
-  $items['admin/structure/msm/tests'] = array(
+  $items['admin/msm/tests'] = array(
     'title' => 'Tests',
     'description' => 'View and run tests.',
     'page callback' => 'msm_tests_page',
     'access arguments' => array('administer msm'),
-    'type' => MENU_LOCAL_TASK,
     'weight' => 99,
     'file path' => $inc_path,
     'file' => 'tests.inc',
   );
-  $items['admin/structure/msm/settings'] = array(
+  $items['admin/msm/settings'] = array(
     'title' => 'Settings',
     'description' => 'Configure MSM Settings',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_settings_form'),
     'access arguments' => array('administer msm'),
-    'type' => MENU_LOCAL_TASK,
     'weight' => 99,
   );
-  $items['admin/structure/msm/col'] = array(
+  $items['admin/msm/col'] = array(
     'title' => 'Collections',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'description' => 'Manage and extend MongoDB schemas.',
+    'page callback' => 'msm_collection_list',
+    'access arguments' => array('administer msm'),
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => -10,
+    'menu_name' => 'management',
   );
-  $items['admin/structure/msm/col/create'] = array(
+  $items['admin/msm/col/create'] = array(
     'title' => 'Create collection',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_collection_create_form'),
+    'page arguments' => array('msm_collection_form'),
     'access arguments' => array('administer msm'),
     'type' => MENU_LOCAL_ACTION,
     'file path' => $inc_path,
     'file' => 'collection.inc',
   );
-  $items['admin/structure/msm/col/%msm_collection'] = array(
-  //  'title' => 'Collection',
+  $items['admin/msm/col/%msm_collection'] = array(
     'title callback' => 'msm_collection_title',
-    'title arguments' => array(4),
+    'title arguments' => array(3),
     'page callback' => 'msm_collection_view',
-    'page arguments' => array(4),
+    'page arguments' => array(3),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4),
+    'access arguments' => array(3),
     'file path' => $inc_path,
     'file' => 'collection.inc',
-    'type' => MENU_CALLBACK,
+    'menu_name' => 'management',
   );
-  $items['admin/structure/msm/col/%msm_collection/view'] = array(
+  $items['admin/msm/col/%msm_collection/view'] = array(
     'title' => 'View',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -100,
   );
-  $items['admin/structure/msm/col/%msm_collection/map-reduce'] = array(
-    'title' => 'Map Reduce',
-    'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'mapReduce'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_mapreduce_form', 4),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => $inc_path,
-    'file' => 'mapreduce_form.inc',
-    'weight' => 0
-  );
-  $items['admin/structure/msm/col/%msm_collection/pipeline'] = array(
-    'title' => 'Pipeline',
-    'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'pipeline'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_pipeline_form', 4),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => $inc_path,
-    'file' => 'pipeline_form.inc',
-    'weight' => 0
-  );
-  $items['admin/structure/msm/col/%msm_collection/custom'] = array(
-    'title' => 'Custom Eval',
-    'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'eval'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_eval_form', 4),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => $inc_path,
-    'file' => 'eval_form.inc',
-    'weight' => 0
-  );
-  $items['admin/structure/msm/col/%msm_collection/schema'] = array(
-    'title' => 'Schema',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_schema_form', 4),
-    'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'schema-edit'),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => $inc_path,
-    'file' => 'schema_form.inc',
-    'weight' => -1,
-  );
-  $items['admin/structure/msm/col/%msm_collection/schema/view'] = array(
-    'title' => 'View',
-    'page callback' => 'msm_collection_schema_view',
-    'page arguments' => array(4),
-    'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'schema-view'),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => $inc_path,
-    'file' => 'collection.inc',
-  );
-  $items['admin/structure/msm/col/%msm_collection/schema/edit'] = array(
+  $items['admin/msm/col/%msm_collection/edit'] = array(
     'title' => 'Edit',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -10,
-  );
-  $items['admin/structure/msm/col/%msm_collection/schema/analyze'] = array(
-    'title' => 'Analyze Schema',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_collection_schema_analyze_form', 4),
+    'page arguments' => array('msm_collection_form', 3),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'schema-analyze'),
+    'access arguments' => array(3, 'edit'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'collection.inc',
-    'weight' => 10,
+    'weight' => -91,
   );
-  $items['admin/structure/msm/col/%msm_collection/schema/reset'] = array(
-    'title' => 'Reset',
+  $items['admin/msm/col/%msm_collection/clone'] = array(
+    'title' => 'Clone',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_collection_reset_form', 4),
+    'page arguments' => array('msm_collection_clone_form', 3),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'reset'),
+    'access arguments' => array(3, 'edit'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'collection.inc',
-    'weight' => 15,
+    'weight' => 91,
   );
-  $items['admin/structure/msm/col/%msm_collection/settings'] = array(
+  $items['admin/msm/col/%msm_collection/settings'] = array(
     'title' => 'Settings',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_collection_settings_form', 4),
+    'page arguments' => array('msm_collection_settings_form', 3),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'settings'),
+    'access arguments' => array(3, 'settings'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'collection.inc',
     'weight' => -90,
   );
-  $items['admin/structure/msm/col/%msm_collection/process'] = array(
-    'title' => 'Process',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_collection_process_form', 4),
+  $items['admin/msm/col/%msm_collection/map-reduce'] = array(
+    'title' => 'Map Reduce',
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'process'),
+    'access arguments' => array(3, 'mapReduce'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_mapreduce_form', 3),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'mapreduce_form.inc',
+    'weight' => 0
+  );
+  $items['admin/msm/col/%msm_collection/pipeline'] = array(
+    'title' => 'Pipeline',
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'pipeline'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_pipeline_form', 3),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'pipeline_form.inc',
+    'weight' => 0
+  );
+  $items['admin/msm/col/%msm_collection/custom'] = array(
+    'title' => 'Custom Eval',
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'eval'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_eval_form', 3),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'eval_form.inc',
+    'weight' => 0
+  );
+  $items['admin/msm/col/%msm_collection/schema'] = array(
+    'title' => 'Schema',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_schema_form', 3),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'schema-edit'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'schema_form.inc',
+    'weight' => -1,
+  );
+  $items['admin/msm/col/%msm_collection/schema/view'] = array(
+    'title' => 'View',
+    'page callback' => 'msm_collection_schema_view',
+    'page arguments' => array(3),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'schema-view'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'collection.inc',
   );
-  $items['admin/structure/msm/col/%msm_collection/endpoint'] = array(
-    'title' => 'Endpoint',
-    'page callback' => 'msm_collection_endpoint',
-    'page arguments' => array(4),
+  $items['admin/msm/col/%msm_collection/schema/edit'] = array(
+    'title' => 'Edit',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/msm/col/%msm_collection/schema/analyze'] = array(
+    'title' => 'Analyze Schema',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_schema_analyze_form', 3),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(4, 'endpoint'),
+    'access arguments' => array(3, 'schema-analyze'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'collection.inc',
     'weight' => 10,
   );
-  $items['admin/structure/msm/col/%msm_collection/delete'] = array(
+  $items['admin/msm/col/%msm_collection/schema/reset'] = array(
+    'title' => 'Reset',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_reset_form', 3),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'reset'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => 15,
+  );
+  $items['admin/msm/col/%msm_collection/process'] = array(
+    'title' => 'Process',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_process_form', 3),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'process'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+  );
+  $items['admin/msm/col/%msm_collection/endpoint'] = array(
+    'title' => 'Endpoint',
+    'page callback' => 'msm_collection_endpoint',
+    'page arguments' => array(3),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'endpoint'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => 10,
+  );
+  $items['admin/msm/col/%msm_collection/delete'] = array(
     'title' => 'Delete',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_collection_delete_form', 4),
+    'page arguments' => array('msm_collection_delete_form', 3),
     'access arguments' => array('administer msm'),
     'type' => MENU_LOCAL_TASK,
     'weight' => 10,
@@ -201,7 +226,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => 100,
   );
-  $items['admin/structure/msm/db'] = array(
+  $items['admin/msm/db'] = array(
     'title' => 'Databases',
     'description' => 'Manage the available databases.',
     'page callback' => 'msm_database_list',
@@ -210,7 +235,7 @@ function msm_menu() {
     'file' => 'database.inc',
     'type' => MENU_LOCAL_TASK,
   );
-  $items['admin/structure/msm/db/add'] = array(
+  $items['admin/msm/db/add'] = array(
     'title' => 'Add database',
     'description' => 'Add a new database to MSM',
     'page callback' => 'drupal_get_form',
@@ -220,7 +245,7 @@ function msm_menu() {
     'file path' => $inc_path,
     'file' => 'database.inc',
   );
-  $items['admin/structure/msm/db/enable/%'] = array(
+  $items['admin/msm/db/enable/%'] = array(
     'title' => 'Enable database',
     'page callback' => 'msm_database_enable',
     'page arguments' => array(5),
@@ -229,42 +254,42 @@ function msm_menu() {
     'file' => 'database.inc',
     'type' => MENU_CALLBACK,
   );
-  $items['admin/structure/msm/db/%msm_database'] = array(
+  $items['admin/msm/db/%msm_database'] = array(
     'title callback' => 'msm_database_title',
-    'title arguments' => array(4, 'edit'),
+    'title arguments' => array(3, 'edit'),
     'page callback' => 'msm_database_view',
-    'page arguments' => array(4),
+    'page arguments' => array(3),
     'access arguments' => array('administer msm'),
     'file path' => $inc_path,
     'file' => 'database.inc',
   );
-  $items['admin/structure/msm/db/%msm_database/view'] = array(
+  $items['admin/msm/db/%msm_database/view'] = array(
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'title' => 'View',
   );
-  $items['admin/structure/msm/db/%msm_database/disable'] = array(
+  $items['admin/msm/db/%msm_database/disable'] = array(
       'title' => 'Disable database',
       'page callback' => 'msm_database_disable',
-      'page arguments' => array(4),
+      'page arguments' => array(3),
       'access arguments' => array('administer msm'),
       'file path' => $inc_path,
       'file' => 'database.inc',
       'type' => MENU_CALLBACK,
   );
-  $items['admin/structure/msm/db/%msm_database/delete'] = array(
+  $items['admin/msm/db/%msm_database/delete'] = array(
     'type' => MENU_LOCAL_TASK,
     'title' => 'Delete',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_database_delete_form', 4),
+    'page arguments' => array('msm_database_delete_form', 3),
     'access arguments' => array('administer msm'),
     'file path' => $inc_path,
     'file' => 'database.inc',
   );
-  $items['admin/structure/msm/db/%msm_database/analyze-schema/%'] = array(
+  $items['admin/msm/db/%msm_database/analyze-schema/%'] = array(
     'type' => MENU_CALLBACK,
     'title' => 'Analyze Collection Schema',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_database_analyze_schema_form', 4, 6),
+    'page arguments' => array('msm_database_analyze_schema_form', 3, 5),
     'access arguments' => array('administer msm'),
     'file path' => $inc_path,
     'file' => 'database.inc',
@@ -321,7 +346,7 @@ function msm_theme() {
       'template' => 'msm-variables-help-item',
     ),
     'msm_schema_result_tree' => array(
-      'variables' => array('schema' => array(), 'result' => array()),
+      'variables' => array('schema' => array(), 'result' => array(), 'array_item_limit' => 3),
       'file' => 'msm.theme.inc',
     ),
     'msm_schema_field_label' => array(
@@ -420,6 +445,7 @@ function msm_collection_access($collection, $op = null) {
   if ($collection['type'] == 'existing') {
     switch ($op) {
       case 'view':
+      case 'edit':
       case 'schema-view':
       case 'schema-analyze':
         return TRUE;
@@ -438,6 +464,7 @@ function msm_collection_access($collection, $op = null) {
     }
   }
   switch ($op) {
+    case 'edit': return TRUE;
     case 'view':
       // Nothing to view until enabled
       return $collection['enabled'];
@@ -447,8 +474,7 @@ function msm_collection_access($collection, $op = null) {
     case 'pipeline':
       return $collection['type'] == 'aggregation';
     case 'eval':
-      return $collection['type'] == 'custom';
-      return FALSE;
+      return in_array($collection['type'], array('custom', 'import'));
     case 'schema-view':
     case 'schema-edit':
       if (!empty($collection['schemaImported'])) {
@@ -457,7 +483,9 @@ function msm_collection_access($collection, $op = null) {
       switch ($collection['type']) {
         case 'mapReduce': return !empty($collection['mapReduce']);
         case 'aggregation': return !empty($collection['pipeline']);
-        case 'custom': return !empty($collection['eval']);
+        case 'import':
+        case 'custom':
+            return !empty($collection['eval']);
         default: throw new Exception(t('Unknown collection type: %collection_type', array('%collection_type' => $collection['type'])));
       }
       break;
@@ -476,6 +504,7 @@ function msm_collection_access($collection, $op = null) {
 }
 
 function msm_collection_title($collection, $op = null) {
+  return check_plain($collection['_id']);
   return t('Collection: @id', array('@id' => $collection['_id']));
 }
 
@@ -558,18 +587,27 @@ function msm_text_format_validate(&$element, &$form_state) {
   }
 }
 
-function msm_collection_options() {
+function msm_collection_options($grouped = FALSE) {
   $options = &drupal_static(__FUNCTION__);
   if (!isset($options)) {
-    $options = array();
+    $options = array('grouped' => array(), 'ungrouped' => array());
     $result = msm_request('collections');
     foreach ($result AS $col) {
       if ($col['enabled']) {
-        $options[$col['_id']] = t('@db: @col', array('@db' => $col['database'], '@col' => $col['name']));
+        $text = t('@title (@database:@collectionName)', array(
+          '@title' => $col['name'],
+          '@database' => $col['database'],
+          '@collectionName' => $col['collection'],
+        ));
+        $options['ungrouped'][$col['_id']] = $text;
+        if (!isset($options[$col['database']])) {
+          $options[$col['database']] = array();
+        }
+        $options['grouped'][$col['database']][$col['_id']] = $text;
       }
     }
   }
-  return $options;
+  return $grouped ? $options['grouped'] : $options['ungrouped'];
 }
 
 function msm_schema_sort($schema, $ns = null) {
@@ -605,14 +643,14 @@ function msm_collection_info($collection, array $options = array()) {
         '_id' => array(t('Collection ID'), $collection['_id']),
         'name' => array(t('Name/Label'), $collection['name']),
         'collection' => array(t('Collection Name'), $collection['collection']),
-        'database' => array(t('Database'), l($collection['database'], 'admin/structure/msm/db/' . $collection['collection'])),
+        'database' => array(t('Database'), l($collection['database'], 'admin/msm/db/' . $collection['collection'])),
         'type' => array(t('Collection Type'), $collection['type']),
         'schema' => array(t('Has Schema'), $has_schema ? t('Yes') : t('No')),
         'totalDocuments' => array(t('Total Documents:', number_format($count, 0))),
       ),
     );
     if (!empty($collection['source'])) {
-      $build['info']['items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/structure/msm/col/' . $collection['source']));
+      $build['info']['items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/msm/col/' . $collection['source']));
     }
   }
   if ($options['schema_info'] && $has_schema) {

@@ -31,48 +31,48 @@ function msm_collection_list() {
     );
     if (msm_collection_access($col, 'endpoint')) {
       $actions['#links']['endpoint'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/endpoint', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/endpoint', $col['_id']),
         'title' => t('Endpoint'),
       );
     }
     if (msm_collection_access($col, 'settings')) {
       $actions['#links']['settings'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/settings', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/settings', $col['_id']),
         'title' => t('Settings'),
       );
     }
     if (msm_collection_access($col, 'schema')) {
       $actions['#links']['schema'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/schema', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/schema', $col['_id']),
         'title' => t('Schema'),
       );
     }
     if (msm_collection_access($col, 'eval')) {
       $actions['#links']['eval'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/custom', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/custom', $col['_id']),
         'title' => t('Eval'),
       );
     }
     elseif (msm_collection_access($col, 'pipeline')) {
       $actions['#links']['pipeline'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/pipeline', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/pipeline', $col['_id']),
         'title' => t('Pipeline'),
       );
     }
     elseif (msm_collection_access($col, 'mapReduce')) {
       $actions['#links']['map-reduce'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/map-reduce', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/map-reduce', $col['_id']),
         'title' => t('Map Reduce'),
       );
     }
     if (msm_collection_access($col, 'process')) {
       $actions['#links']['process'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/process', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/process', $col['_id']),
         'title' => t('Process'),
       );
     }
     $actions['#links']['delete'] = array(
-      'href' => sprintf('admin/structure/msm/col/%s/delete', $col['_id']),
+      'href' => sprintf('admin/msm/col/%s/delete', $col['_id']),
       'title' => t('Delete'),
     );
     $dependencies = sprintf('<em>%s</em>', t('None'));
@@ -84,15 +84,15 @@ function msm_collection_list() {
       foreach ($col['dependencies'] AS $dep) {
         $dependencies['#links'][] = array(
           'title' => $dep,
-          'href' => sprintf('admin/structure/msm/col/%s', $dep),
+          'href' => sprintf('admin/msm/col/%s', $dep),
         );
       }
       $dependencies = render($dependencies);
     }
-    $source = !empty($col['source']) ? l($col['source'], sprintf('admin/structure/msm/col/%s', $col['source'])) : 'n/a';
+    $source = !empty($col['source']) ? l($col['source'], sprintf('admin/msm/col/%s', $col['source'])) : 'n/a';
     $build['list']['#rows'][] = array(
-      l($col['name'], sprintf('admin/structure/msm/col/%s', $col['_id'])),
-      l($col['database'], sprintf('admin/structure/msm/db/%s', $col['database'])),
+      l($col['name'], sprintf('admin/msm/col/%s', $col['_id'])),
+      l($col['database'], sprintf('admin/msm/db/%s', $col['database'])),
       $col['collection'],
       empty($col['type']) ? 'n/a' : $col['type'],
       $col['enabled'] ? t('Enabled') : t('Disabled'),
@@ -129,20 +129,20 @@ function msm_collection_view(array $collection, array $options = array()) {
         '_id' => array(t('Collection ID'), $collection['_id']),
         'name' => array(t('Name/Label'), $collection['name']),
         'collection' => array(t('Collection Name'), $collection['collection']),
-        'database' => array(t('Database'), l($collection['database'], 'admin/structure/msm/db/' . $collection['database'])),
+        'database' => array(t('Database'), l($collection['database'], 'admin/msm/db/' . $collection['database'])),
         'type' => array(t('Collection Type'), isset($collection['type']) ? $collection['type'] : null),
         'schema' => array(t('Has Schema'), $has_schema ? t('Yes') : t('No')),
         'totalDocuments' => array(t('Total Documents'), number_format($count, 0)),
       ),
     );
     if (!empty($collection['source'])) {
-      $build['#info']['#items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/structure/msm/col/' . $collection['source']));
+      $build['#info']['#items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/msm/col/' . $collection['source']));
     }
     if (!empty($collection['dependencies'])) {
         $deplinks = [];
         foreach ($collection['dependencies'] AS $dep) {
             $deplinks[] = array(
-                'href' => sprintf('admin/structure/msm/col/%s', $dep),
+                'href' => sprintf('admin/msm/col/%s', $dep),
                 'title' => $dep,
             );
         }
@@ -151,6 +151,12 @@ function msm_collection_view(array $collection, array $options = array()) {
             theme('links', array('links' => $deplinks))
         );
     }
+  }
+  if (!empty($collection['lastProcessed'])) {
+    $build['#info']['#items']['lastProcessed'] = array(t('Last processed:'), $collection['lastProcessed']);
+    $build['#info']['#items']['timesProcessed'] = array(t('Times processed:'), $collection['timesProcessed']);
+    $build['#info']['#items']['millisProcessed'] = array(t('Milliseconds spent processing:'), number_format($collection['millisProcessed']));
+    $build['#info']['#items']['averageSeconds'] = array(t('Average processing time:'), number_format($collection['millisProcessed']/$collection['timesProcessed']/1000, 2) . ' seconds');
   }
   if ($options['schema_info'] && $has_schema) {
     $fields = msm_schema_flatten_fields($collection['schema'], MSM_SCHEMA_FLATTEN_ALL);
@@ -212,6 +218,173 @@ function msm_collection_schema_view(array $collection) {
   return $build;
 }
 
+function msm_collection_form($form, &$form_state, array $collection = array()) {
+  $html_id = drupal_html_class(__FUNCTION__);
+  $form['#prefix'] = sprintf('<div id="%s">', $html_id);
+  $form['#suffix'] = sprintf('</div>');
+  $form['#is_new'] = empty($collection['_id']);
+  $form_state += array(
+    'collection_id' => empty($collection['_id']) ? NULL : $collection['_id'],
+    'document' => NULL,
+  );
+  $ajax = array(
+    'callback' => 'msm_collection_form_ajax',
+    'wrapper' => $html_id,
+  );
+  $document = !empty($form_state['document']) ? $form_state['document'] : $collection;
+  $document += array(
+    'name' => null,
+    'enabled' => FALSE,
+    'persist' => 1,
+    'type' => 'custom',
+    'source' => null,
+    'database' => variable_get('msm_db_default', 'test'),
+    'collection' => null,
+    'description' => null,
+  );
+  // "has (collection) source"
+  $hasSource = in_array($document['type'], array('mapReduce', 'aggregation', 'custom'));
+  $form['collection_id'] = array(
+    '#type' => 'item',
+    '#title' => t('Collection ID') . ':',
+    '#markup' => $form_state['collection_id'],
+    '#attributes' => array('class' => array('container-inline')),
+    '#access' => !empty($form_state['collection_id']),
+  );
+  $form['name'] = array(
+    '#title' => t('Name'),
+    '#type' => 'textfield',
+    '#required' => TRUE,
+    '#weight' => 0,
+    '#default_value' => $document['name'],
+  );
+  $form['description'] = array(
+    '#title' => t('Description'),
+    '#type' => 'textarea',
+    '#weight' => 5,
+    '#default_value' => $document['description'],
+  );
+  $form['type'] = array(
+    '#title' => t('Type'),
+    '#type' => 'select',
+    '#options' => msm_collection_type_options($document['persist']),
+    '#required' => TRUE,
+    '#default_value' => $document['type'],
+    '#ajax' => $ajax,
+    '#weight' => 1000,
+  );
+  $form['persist'] = array(
+    '#title' => t('Storage type'),
+    '#type' => 'radios',
+    '#options' => array(
+      1 => t('Normal (persist)'),
+      0 => t('Real-time Query Container (no storage)'),
+    ),
+    '#default_value' => $document['persist'] ? 1 : 0,
+    '#access' => in_array($document['type'], array('aggregation', 'custom')),
+    '#ajax' => $ajax,
+    '#required' => TRUE,
+    '#weight' => 1100,
+  );
+
+  $form['database'] = array(
+    '#title' => t('Database'),
+    '#type' => 'select',
+    '#options' => msm_database_options(),
+//    '#default_value' => $form['#source']['database'],
+    '#disabled' => !$form['#is_new'] || !in_array($document['type'], array('mapReduce', 'custom', 'import')),
+    '#default_value' => $document['database'],
+    '#required' => TRUE,
+    '#weight' => 2000,
+  );
+  $form['collection'] = array(
+    '#title' => t('Collection name'),
+    '#type' => 'textfield',
+    '#required' => TRUE,
+    '#weight' => 3000,
+    '#default_value' => $document['collection'],
+    '#disabled' => !$form['#is_new'],
+  );
+  $form['source'] = array(
+    '#title' => t('Source collection'),
+    '#type' => 'select',
+    '#options' => array('') + msm_collection_options(NULL, TRUE),
+    '#access' => !in_array($document['type'], array('existing', 'import')),
+    '#default_value' => $document['source'],
+    '#ajax' => $ajax,
+    '#required' => TRUE,
+    '#weight' => 4000,
+  );
+  if (!empty($document['source'])) {
+    if (empty($form['#source']) || $form['#source']['_id'] != $document['source']) {
+      $form['#source'] = msm_request(sprintf('collection/%s', $document['source']));
+    }
+  }
+
+  switch ($document['type']) {
+    case 'existing':
+      module_load_include('inc', 'msm', 'includes/database');
+      $database = msm_database_load($document['database']);
+      $form['collection']['#type'] = 'select';
+      $form['collection']['#options'] = msm_database_uninitialized_collection_options($database);
+      break;
+    case 'custom':
+      break;
+    case 'mapReduce':
+      break;
+  }
+
+  $form['actions'] = array('#type' => 'actions', '#weight' => 10000);
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+function msm_collection_form_ajax($form, &$form_state) {
+  return $form;
+}
+
+function msm_collection_form_validate(&$form, &$form_state) {
+  $values = $form_state['values'];
+  $document =& $form_state['document'];
+  $skip = array('form_id', 'form_build_id', 'form_token', 'op', 'submit', 'destination');
+  foreach (array_keys($values) AS $key) {
+    if (in_array($key, $skip)) continue;
+    $document[$key] = $values[$key];
+  }
+  $document['persist'] = intval($document['persist']) ? true : false;
+  if ($form['#is_new'] && empty($document['_id']) && !empty($document['database']) && !empty($document['collection'])) {
+    $form_state['collection_id'] = sprintf('%s:%s', $document['database'], $document['collection']);
+  }
+}
+
+function msm_collection_form_submit($form, &$form_state) {
+  $document = $form_state['document'];
+  if ($form['#is_new']) {
+    $result = msm_post(sprintf('collection/create/%s', $form_state['collection_id']), $document);
+  }
+  else {
+    $result = msm_post(sprintf('collection/%s/update', $form_state['collection_id']), ['$set' => $document]);
+  }
+  if (!isset($result['ok']) || !$result['ok']) {
+    $result = (array)$result;
+    $result += array('error' => t('No further information to display.'));
+    form_set_error('', t('An error occurred while attempting to save the collection: @err.', array('@err' => $result['error'])));
+  }
+  $form_state['redirect'] = sprintf('admin/msm/col/%s', $form_state['collection_id']);
+}
+
+function msm_collection_clone_form($form, &$form_state, array $collection) {
+  $cloned = $collection;
+  unset($cloned['_id']);
+  unset($cloned['collection']);
+  $cloned['name'] = sprintf('Clone of %s', $collection['name']);
+  $form = msm_collection_form($form, $form_state, $cloned);
+  return $form;
+}
+
 function msm_collection_create_form($form, &$form_state) {
   $html_id = drupal_html_class(__FUNCTION__);
   $form['#prefix'] = sprintf('<div id="%s">', $html_id);
@@ -230,7 +403,7 @@ function msm_collection_create_form($form, &$form_state) {
   $form['name'] = array(
     '#title' => t('Name'),
     '#type' => 'textfield',
-    '#access' => !empty($document['source']),
+    '#access' => !empty($document['source']) || $document['type'] == 'import',
     '#required' => TRUE,
     '#weight' => 95,
     '#ajax' => $ajax + array('event' => 'blur'),
@@ -241,8 +414,7 @@ function msm_collection_create_form($form, &$form_state) {
     '#machine_name' => array(
       'exists' => 'msm_collection_exists',
     ),
-    '#access' => !empty($document['source']),
-    '#disabled' => $document['persist'],
+    '#access' => !empty($document['source']) || $document['type'] == 'import',
     '#required' => TRUE,
     '#weight' => 97,
   );
@@ -256,7 +428,7 @@ function msm_collection_create_form($form, &$form_state) {
   );
   $form['actions']['cancel'] = array(
     '#type' => 'link',
-    '#href' => 'admin/structure/msm/col',
+    '#href' => 'admin/msm/col',
     '#title' => t('Cancel'),
   );
   $form['persist'] = array(
@@ -281,7 +453,7 @@ function msm_collection_create_form($form, &$form_state) {
     '#title' => t('Source collection'),
     '#type' => 'select',
     '#options' => array('') + msm_collection_options(),
-    '#access' => !empty($document['type']),
+    '#access' => !empty($document['type']) && $document['type'] != 'import',
     '#ajax' => $ajax,
     '#required' => TRUE,
   );
@@ -346,7 +518,10 @@ function msm_collection_create_form_validate(&$form, &$form_state) {
     $document['database'] = $form['#source']['database'];
   }
   else {
-    if (!empty($values['destination']['collection']) && !empty($values['destination']['database'])) {
+    if ($document['type'] == 'import') {
+
+    }
+    elseif (!empty($values['destination']['collection']) && !empty($values['destination']['database'])) {
       $document['collection'] = $values['destination']['collection'];
       $document['database'] = $values['destination']['database'];
       $form_state['id'] = sprintf('%s.%s', $document['database'], $document['collection']);
@@ -373,7 +548,7 @@ function msm_collection_create_form_submit($form, &$form_state) {
         $step = 'custom';
         break;
     }
-    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/%s', $form_state['id'], $step);
+    $form_state['redirect'] = sprintf('admin/msm/col/%s/%s', $form_state['id'], $step);
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
 }
@@ -382,7 +557,7 @@ function msm_collection_delete_form($form, &$form_state, $collection) {
   $form['#collection'] = $collection;
   return confirm_form($form,
     t('Are you sure you want to delete all schema information for @id', array('@id' => $collection['_id'])),
-    sprintf('admin/structure/msm/col/%s', $collection['_id']),
+    sprintf('admin/msm/col/%s', $collection['_id']),
     t('No user database will be deleted. Only schema information.'),
     t('Delete collection'),
     t('Cancel')
@@ -392,13 +567,21 @@ function msm_collection_delete_form($form, &$form_state, $collection) {
 function msm_collection_delete_form_submit($form, &$form_state) {
   $result = msm_request(sprintf('collection/%s/delete', $form['#collection']['_id']));
   if ($result['ok']) {
-    $form_state['redirect'] = 'admin/structure/msm/col';
+    $form_state['redirect'] = 'admin/msm/col';
   }
 }
 
-function msm_collection_type_options() {
+function msm_collection_type_options($persistant = TRUE) {
+  if ($persistant) {
+    return array(
+      'mapReduce' => t('Map Reduce'),
+      'aggregation' => t('Aggregation'),
+      'custom' => t('Custom'),
+      'import' => t('Import'),
+      'existing' => t('Existing'),
+    );
+  }
   return array(
-    'mapReduce' => t('Map Reduce'),
     'aggregation' => t('Aggregation'),
     'custom' => t('Custom'),
   );
@@ -516,7 +699,7 @@ function msm_collection_settings_form_submit($form, &$form_state) {
   }
   $result = msm_post(sprintf('collection/%s/update', $collectionId), $update);
   if ($result['ok']) {
-    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/view', $collectionId);
+    $form_state['redirect'] = sprintf('admin/msm/col/%s/view', $collectionId);
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
 }
@@ -533,8 +716,11 @@ function msm_collection_endpoint_form($form, &$form_state, array $collection) {
     'query' => null,
     'project' => null,
     'sort' => null,
+    'options' => array(),
   );
-  dsm($params);
+  $params['options'] += array(
+    'array_item_limit' => 3,
+  );
   $result = msm_post(sprintf('collection/%s/query', $collection['_id']), $params);
   dsm($result);
   $html_id = drupal_html_class(__FUNCTION__);
@@ -585,11 +771,19 @@ function msm_collection_endpoint_form($form, &$form_state, array $collection) {
     '#value' => t('Run query'),
     '#ajax' => $ajax,
   );
+  $form['params']['options'] = array('#tree' => TRUE);
+  $form['params']['options']['array_item_limit'] = array(
+    '#title' => t('Array Item Limit'),
+    '#type' => 'textfield',
+    '#default_value' => $params['options']['array_item_limit'],
+  );
+dsm($params['options']);
   if (!empty($result['results'][0])) {
     $form['result'] = array(
       '#markup' => theme('msm_schema_result_tree', array(
         'schema' => $result['schema'],
         'result' => $result['results'][0],
+        'array_item_limit' => (int)$params['options']['array_item_limit'],
       )),
     );
   }
@@ -666,7 +860,7 @@ function msm_collection_reset_form($form, &$form_state, array $collection) {
   $form['#collection'] = $collection;
   return confirm_form($form,
     t('Are you sure you want to reset the schema for @collection', array('@collection' => $collection['_id'])),
-    sprintf('admin/structure/msm/collection/%s', $collection['_id']),
+    sprintf('admin/msm/collection/%s', $collection['_id']),
     t('This will remove the schema information.'),
     t('Reset schema'),
     t('Cancel')
@@ -682,7 +876,7 @@ function msm_collection_reset_form_submit($form, &$form_state) {
   $result = msm_post(sprintf('collection/%s/update', $collection['_id']), $update);
   if ($result['ok']) {
     drupal_set_message(t('The schema is being reset. Refresh the page momentarily as necessary.'));
-    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema/analyze', $collection['_id']);
+    $form_state['redirect'] = sprintf('admin/msm/col/%s/schema/analyze', $collection['_id']);
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
 }
@@ -721,7 +915,7 @@ function msm_collection_schema_analyze_form($form, &$form_state, array $collecti
   $form['actions']['cancel'] = array(
     '#type' => 'link',
     '#title' => t('Cancel'),
-    '#href' => sprintf('admin/structure/msm/col/%s', $collection['_id']),
+    '#href' => sprintf('admin/msm/col/%s', $collection['_id']),
   );
   $form['#collection'] = $collection;
   return $form;
@@ -731,6 +925,6 @@ function msm_collection_schema_analyze_form_submit($form, &$form_state) {
   $collection = $form['#collection'];
   $options = array('limit' => $form_state['values']['limit']);
   $result = msm_post(sprintf('collection/%s/analyze', $collection['_id']), $options);
-  $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema/view', $collection['_id']);
+  $form_state['redirect'] = sprintf('admin/msm/col/%s/schema/view', $collection['_id']);
   drupal_set_message(t('The schema is being analyzed. Refresh the page momentarily as necessary.'));
 }

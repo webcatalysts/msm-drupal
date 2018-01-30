@@ -1,10 +1,11 @@
 var Promise = require('promise');
 
-var CollectionProcess = function (collectionId, databaseWrapper, databaseProvider, collectionProvider) {
+var CollectionProcess = function (collectionId, databaseWrapper, databaseProvider, collectionProvider, settings = {}) {
     this.databaseWrapper = databaseWrapper;
     this.databaseProvider = databaseProvider;
     this.collectionProvider = collectionProvider;
     this.collectionId = collectionId;
+    this.settings = settings;
 }
 
 CollectionProcess.prototype.runAll = async function () {
@@ -132,11 +133,12 @@ CollectionProcess.prototype.runAllNext = function () {
 CollectionProcess.prototype.run = async function (options = {}) {
     console.log('Processing collection: %s', this.collectionId);
     options = Object.assign({analyzeSchema: false}, options);
+    var startMillis = Date.now();
     this.collection = await this.collectionProvider.findOne({_id: this.collectionId});
     if (!this.collection) {
         throw new Error('Collection %s could not be found.', this.collectionId);
     }
-    if (this.collection.type && !this.collection.source) {
+    if (this.collection.type != 'import' && this.collection.type != 'existing' && !this.collection.source) {
         throw new Error('Collection %s missing source attribute.', this.collection._id);
     }
     else if (this.collection.type && this.collection.source) {
@@ -153,18 +155,20 @@ CollectionProcess.prototype.run = async function (options = {}) {
     var result = {};
     var instance = this;
     let con = await instance.databaseWrapper.connect();
+    if (this.settings.collectionpreprocess) {
+        eval(this.settings.collectionpreprocess);
+    }
     if (instance.source) {
         var sourceDatabaseName = instance.source.database;
         var sourceDatabase = con.db(sourceDatabaseName);
         var sourceCollectionName = instance.source.collection;
         var sourceCollection = sourceDatabase.collection(sourceCollectionName);
     }
-    if (instance.collection.persist) {
-        var destinationDatabaseName = instance.collection.database;
-        var destinationDatabase = con.db(destinationDatabaseName);
-        var destinationCollectionName = instance.collection.collection;
-        var destinationCollection = destinationDatabase.collection(destinationCollectionName);
-    }
+    var destinationDatabaseName = instance.collection.database;
+    var destinationDatabase = con.db(destinationDatabaseName);
+    var destinationCollectionName = instance.collection.collection;
+    var destinationCollection = destinationDatabase.collection(destinationCollectionName);
+
     if (instance.collection.dependencies && instance.collection.dependencies.length) {
         let deps = await instance.collectionProvider.find({_id: { "$in": instance.collection.dependencies }});
         var numD = deps.length;
@@ -179,6 +183,7 @@ CollectionProcess.prototype.run = async function (options = {}) {
             }
         }
     }
+
     if (instance.collection.preProcess) {
         console.log('Pre-processing: %s', instance.collection._id);
         eval('var preProcess = async function(instance, result) { ' + instance.collection.preProcess + '};');
@@ -199,6 +204,15 @@ CollectionProcess.prototype.run = async function (options = {}) {
                 await postProcess(instance, result);
                 console.log('Finished post-processing: %s', instance.collection._id);
             }
+            await instance.collectionProvider.save(instance.collection._id, {
+                '$set': {
+                    lastProcessed: new Date(),
+                },
+                '$inc': {
+                    timesProcessed: 1,
+                    millisProcessed: Date.now() - startMillis,
+                },
+            });
             console.log('Successfully processed collection: ', instance.collection._id);
             con.close();
         }
@@ -209,6 +223,7 @@ CollectionProcess.prototype.run = async function (options = {}) {
         case 'aggregation':
             break;
         case 'custom':
+        case 'import':
             //console.log('Processing custom eval collection: ', instance.collection._id);
             eval('var evalCustom = async function () { ' + instance.collection.eval.code + ' };');
             await evalCustom();

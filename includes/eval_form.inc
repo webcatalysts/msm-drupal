@@ -5,7 +5,9 @@ function msm_eval_form($form, &$form_state, array $collection) {
   $collection += array(
     'dependencies' => array(),
   );
-  $source = msm_request(sprintf('collection/%s', $collection['source']));
+  if (!empty($collection['source'])) {
+    $source = msm_request(sprintf('collection/%s', $collection['source']));
+  }
   $form['actions'] = array(
     '#type' => 'actions',
     '#weight' => 100,
@@ -14,12 +16,10 @@ function msm_eval_form($form, &$form_state, array $collection) {
     '#type' => 'submit',
     '#value' => t('Continue'),
   );
-  if ($collection['persist']) {
-    $form['actions']['save_and_process'] = array(
-      '#type' => 'submit',
-      '#value' => t('Save and Process'),
-    );
-  }
+  $form['actions']['save_and_process'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save and Process'),
+  );
   $form['eval'] = array(
     '#tree' => TRUE,
     '#type' => 'fieldset',
@@ -39,7 +39,7 @@ function msm_eval_form($form, &$form_state, array $collection) {
     '#type' => 'fieldset',
     '#title' => t('Dependencies (@count)', array('@count' => count($collection['dependencies']))),
     '#collapsible' => TRUE,
-    '#collapsed' => TRUE,
+    '#collapsed' => FALSE,
   );
   $options = msm_collection_options();
   if (isset($options[$collection['_id']])) {
@@ -50,6 +50,9 @@ function msm_eval_form($form, &$form_state, array $collection) {
   }
   $form['deps']['dependencies'] = array(
     '#type' => 'checkboxes',
+    '#type' => 'select',
+    '#multiple' => TRUE,
+    '#chosen' => TRUE,
     '#options' => $options,
     '#default_value' => $collection['dependencies'],
   );
@@ -60,57 +63,57 @@ function msm_eval_form($form, &$form_state, array $collection) {
     'label' => 'callback',
     'value' => 'function',
   );
-  $help[] = array(
-    'label' => 'source',
-    'value' => l($source['collection'], sprintf('admin/structure/msm/col/%s', $collection['source'])),
-    'description' => t('The source collection object.'),
-  );
-  $help[] = array(
-    'label' => 'sourceDatabase',
-    'value' => l($source['database'], sprintf('admin/structure/msm/db/%s', $source['database'])),
-    'description' => t('The source database object.'),
-    'documentation_url' => 'http://mongodb.github.io/node-mongodb-native/2.2/api/Db.html',
-  );
-  $help[] = array(
-    'label' => 'sourceDatabaseName',
-    'value' => $source['database'],
-    'The source database name (string).',
-  );
-  $help[] = array(
-    'label' => 'sourceCollection',
-    'value' => $source['collection'],
-    'description' => t('The source collection object.'),
-    'documentation_url' => 'http://mongodb.github.io/node-mongodb-native/2.2/api/Collection.html',
-  );
-  $help[] = array(
-    'label' => 'sourceCollectionName',
-    'value' => $source['collection'],
-    'description' => t('The source collection name (string).'),
-  );
-  if ($collection['persist']) {
+  if (!empty($collection['source'])) {
     $help[] = array(
-      'label' => 'destinationDatabase',
-      'value' => l($collection['database'], sprintf('admin/structure/msm/db/%s', $collection['database'])),
-      'description' => t('The destination database object.'),
+      'label' => 'source',
+      'value' => l($source['collection'], sprintf('admin/msm/col/%s', $collection['source'])),
+      'description' => t('The source collection object.'),
+    );
+    $help[] = array(
+      'label' => 'sourceDatabase',
+      'value' => l($source['database'], sprintf('admin/msm/db/%s', $source['database'])),
+      'description' => t('The source database object.'),
       'documentation_url' => 'http://mongodb.github.io/node-mongodb-native/2.2/api/Db.html',
     );
     $help[] = array(
-      'label' => 'destinationDatabaseName',
-      'value' => $collection['database'],
-      'description' => t('The destination database name (string).'),
+      'label' => 'sourceDatabaseName',
+      'value' => $source['database'],
+      'The source database name (string).',
     );
     $help[] = array(
-      'label' => 'destinationCollection',
-      'value' => $collection['collection'],
-      'description' => t('The destination collection object.'),
+      'label' => 'sourceCollection',
+      'value' => $source['collection'],
+      'description' => t('The source collection object.'),
       'documentation_url' => 'http://mongodb.github.io/node-mongodb-native/2.2/api/Collection.html',
     );
     $help[] = array(
-      'label' => 'destinationCollectionName',
-      'value' => $collection['collection'],
-      'description' => t('The destination collection name (string).'),
+      'label' => 'sourceCollectionName',
+      'value' => $source['collection'],
+      'description' => t('The source collection name (string).'),
     );
   }
+  $help[] = array(
+    'label' => 'destinationDatabase',
+    'value' => l($collection['database'], sprintf('admin/msm/db/%s', $collection['database'])),
+    'description' => t('The destination database object.'),
+    'documentation_url' => 'http://mongodb.github.io/node-mongodb-native/2.2/api/Db.html',
+  );
+  $help[] = array(
+    'label' => 'destinationDatabaseName',
+    'value' => $collection['database'],
+    'description' => t('The destination database name (string).'),
+  );
+  $help[] = array(
+    'label' => 'destinationCollection',
+    'value' => $collection['collection'],
+    'description' => t('The destination collection object.'),
+    'documentation_url' => 'http://mongodb.github.io/node-mongodb-native/2.2/api/Collection.html',
+  );
+  $help[] = array(
+    'label' => 'destinationCollectionName',
+    'value' => $collection['collection'],
+    'description' => t('The destination collection name (string).'),
+  );
   $form['help'] = array(
     '#type' => 'fieldset',
     '#collapsible' => TRUE,
@@ -142,7 +145,7 @@ dsm($update);
 
   if ($result['ok']) {
     if ($form_state['triggering_element']['#value'] != t('Save and Process')) {
-      $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema', $collectionId);
+      $form_state['redirect'] = sprintf('admin/msm/col/%s/schema', $collectionId);
     }
   }
   else form_set_error('', t('An error has occured while attempting to update the collection: @error', array('@error' => $result['error'])));

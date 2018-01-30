@@ -7,10 +7,13 @@
     "dependencies": {
         "express": "3.x",
         "fs": "0.0.1-security",
+        "js-cache": "^1.0.2",
+        "moment": "^2.20.1",
         "mongodb": "^2.2.34",
         "node-rest-client": "^3.1.0",
         "promise": "^8.0.1",
         "sleep": "^5.1.1",
+        "socket.io": "^2.0.4",
         "url-parse": "^1.2.0",
         "variety-cli": "^0.4.3"
     },

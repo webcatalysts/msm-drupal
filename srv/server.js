@@ -1,11 +1,16 @@
-var express = require('express'),
-    app     = express(),
-    config = require('./config'),
-    SettingsProvider = require('./settingsprovider').SettingsProvider,
-    TestProvider = require('./testprovider').TestProvider,
-    DatabaseWrapper = require('./databasewrapper').DatabaseWrapper,
-    DatabaseProvider = require('./databaseprovider').DatabaseProvider,
-    CollectionProvider = require('./collectionprovider').CollectionProvider;
+var config = require('./config');
+var express = require('express');
+var app = express();
+var server  = require('http').Server(app);
+app.locals.socket = require('socket.io')(server);
+
+SettingsProvider = require('./settingsprovider').SettingsProvider;
+TestProvider = require('./testprovider').TestProvider;
+DatabaseWrapper = require('./databasewrapper').DatabaseWrapper;
+DatabaseProvider = require('./databaseprovider').DatabaseProvider;
+CollectionProvider = require('./collectionprovider').CollectionProvider;
+CollectionProcess = require('./collectionprocess').CollectionProcess;
+
 
 
 config = Object.assign({
@@ -38,6 +43,7 @@ var bootUp = async function () {
 }
 bootUp();
 
+
 app.configure(function() {
     app.set('port', port);
     app.use(express.bodyParser());
@@ -50,11 +56,16 @@ process.on('unhandledRejection', function (err) {
     console.log(err);
 });
 
+app.get('/', function (req, res) {
+  res.sendfile(__dirname + '/console.html');
+});
+
 // Get the db server status
 app.get('/status', async function (req, res) {
     let con = await databaseWrapper.connect();
     let info = await con.db('admin').admin().serverStatus();
     con.close();
+    app.locals.socket.emit('status', info);
     res.send(info);
 });
 
@@ -150,6 +161,7 @@ app.get('/collections/:db', async function (req, res) {
 
 app.post('/collection/create/:id', async function (req, res) {
     req.body.enabled = false;
+    console.log(req.body);
     let result = await collectionProvider.save(req.params.id, req.body);
     res.send(result);
 });
@@ -180,7 +192,15 @@ app.post('/collection/:id/query', async function (req, res) {
         batchSize: req.body.batchSize || false,
         sort: req.body.sort || false
     };
-    let result = await collectionProvider.query(req.params.id, params);
+    var options = {
+        flattenSchema: false,
+        flattenResults: false,
+    }
+    if (req.body.options) {
+        options = Object.assign({}, options, req.body.options);
+    }
+    console.log(options);
+    let result = await collectionProvider.query(req.params.id, params, options);
     res.send(result);
 });
 
@@ -223,7 +243,6 @@ app.get('/collection/:id/reset', async function (req, res) {
 });
 
 app.post('/collection/:id/process', async function (req, res) {
-    var CollectionProcess = require('./collectionprocess').CollectionProcess;
     try {
         let updateResult = await collectionProvider.save(req.params.id, req.body);
         console.log('Updating and processing collection: %s', req.params.id);
@@ -231,7 +250,8 @@ app.post('/collection/:id/process', async function (req, res) {
             req.params.id,
             databaseWrapper,
             databaseProvider,
-            collectionProvider
+            collectionProvider,
+            settings
         );
         console.log('Successfully updated collection: %s. Running colleciton process..', req.params.id);
         collectionProcess.run({analyzeSchema:true});
@@ -244,7 +264,6 @@ app.post('/collection/:id/process', async function (req, res) {
 });
 
 app.get('/collection/:id/process', function (req, res) {
-    let CollectionProcess = require('./collectionprocess').CollectionProcess;
     try {
         console.log('Updating and processing collection: %s', req.params.id);
         let collectionProcess = new CollectionProcess(
@@ -264,7 +283,6 @@ app.get('/collection/:id/process', function (req, res) {
 });
 
 app.get('/process', async function (req, res) {
-    let CollectionProcess = require('./collectionprocess').CollectionProcess;
     try {
         console.log('Processing ALL');
         let collectionProcess = new CollectionProcess(
@@ -283,7 +301,6 @@ app.get('/process', async function (req, res) {
     res.send({ok:1});
 });
 app.get('/process/list', async function (req, res) {
-    let CollectionProcess = require('./collectionprocess').CollectionProcess;
     let collectionProcess = new CollectionProcess(
         null,
         databaseWrapper,
@@ -339,6 +356,6 @@ app.get('/tests/run', async function (req, res) {
     res.json({ok: 1});
 });
 
-app.listen(port, ip);
+server.listen(port, ip);
 console.log('Server running on http://%s:%s', ip, port);
 module.exports = app;

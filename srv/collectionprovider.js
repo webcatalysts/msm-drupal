@@ -87,8 +87,20 @@ CollectionProvider.prototype.analyzeSchema = async function (collectionId, optio
     let collection = await this.findOne({_id: collectionId});
     let con = await this.databaseWrapper.connect();
 
-    let result = await schema.analyzeSchema(con, collection.database, collection.collection, options);
+    if (!collection.persist) {
+        var db = con.db(collection.database);
+        var col = db.collection(collection.collection);
+        var tmpColName = 'tmp.' + collection.collection;
+        await col.aggregate([{'$out': tmpColName}]).toArray();
+        var result = await schema.analyzeSchema(con, collection.database, tmpColName, options);
+        db.dropCollection(tmpColName);
+    }
+    else {
+        var result = await schema.analyzeSchema(con, collection.database, collection.collection, options);
+    }
     let schemaResult = await schema.extractSchema(con, result.dbName, result.colName);
+    con.db(result.dbName).dropCollection(result.colName);
+
     if (collection.schema && options.merge) {
         //schemaResult = Object.assign(collection.schema, schemaResult);
         //schemaResult = schema.mergeSchema(collection.schema, schemaResult); 
@@ -121,7 +133,7 @@ CollectionProvider.prototype.analyzeSchema = async function (collectionId, optio
     });
 }
 
-CollectionProvider.prototype.query = async function (collectionId, params = {}) {
+CollectionProvider.prototype.query = async function (collectionId, params = {}, options = {}) {
     params = Object.assign({}, {
         query: {},
         project: false,
@@ -155,10 +167,10 @@ CollectionProvider.prototype.query = async function (collectionId, params = {}) 
 
     result.totalResults = await cursor.count(false);
     if (result.totalResults) {
+        var Schema = require('./schema');
         if (params.project) {
             cursor.project(params.project);
-            var schema = require('./schema');
-            result.schema = schema.projectSchema(params.project, result.schema);
+            result.schema = Schema.projectSchema(params.project, result.schema);
         }
         if (params.sort) {
             console.log(params.sort);
@@ -176,6 +188,13 @@ CollectionProvider.prototype.query = async function (collectionId, params = {}) 
         result.results = await cursor.toArray();
         result.numResults = result.results.length;
 
+        if (options.flattenResults) {
+            result.results = Schema.flattenResults(result.results);
+        }
+        if (options.flattenSchema) {
+            result.schema = Schema.flattenSchemaFields(result.schema);
+        }
+
         if (collection.postExecute) {
             eval('var postExecute = function (document, collection, params, result) { ' + collection.postExecute + ' }');
             postExecute(collection, col, params, result);
@@ -191,8 +210,37 @@ CollectionProvider.prototype.resetSchema = async function (databaseName, collect
     return result;
 }
 
-CollectionProvider.makeId = function (databaseName, collectionName) {
+CollectionProvider.prototype.makeId = function (databaseName, collectionName) {
     return databaseName + '.' + collectionName;
+}
+
+CollectionProvider.prototype.updateCollectionOptions = async function (collectionId, options = {}) {
+    var optionKeysIn = Object.keys(options);
+    var numOptionsIn = optionKeysIn.length;
+    if (!numOptionsIn) return;
+    var collection = await this.findOne({_id: collectionId}, { persist: 1, database: 1, collection: 1 });
+    if (!collection) {
+        throw new Error('Collection %s not found.', collectionId);
+    }
+    var validOptions = ['index', 'noPadding', 'usePowerOf2Sizes', 'validator', 'validationLevel', 'validationAction'];
+    var validViewOptions = ['viewOn', 'pipeline'];
+    var setOptions = {};
+    // Validate the options (at least partially)
+    optionKeysIn.forEach(function (optionKey) {
+        if (validOptions.indexOf(optionKey) >= 0 || (!collection.persist && validViewOptions.indexOf(optionKey) >= 0)) {
+            setOptions['collectionOptions.' + optionKey] =  options[optionKey];
+        }
+        else throw new Error('Invalid collection option: ' + optionKey);
+    });
+    if (typeof setOptions['collectionOptions.pipeline'] !== 'undefined') {
+        setOptions['collectionOptions.pipeline'] = JSON.stringify(setOptions['collectionOptions.pipeline']);
+    }
+    await this.databaseWrapper.connect();
+    var db = this.databaseWrapper.connection.db(collection.database);
+    var result = await db.command(Object.assign({ collMod: collection.collection}, options));
+    this.databaseWrapper.close();
+    console.log(result);
+    await this.save(collectionId, { '$set': setOptions });
 }
 
 exports.CollectionProvider = CollectionProvider;

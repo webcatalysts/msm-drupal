@@ -2,7 +2,7 @@
 
 ## Installation
 
-Install like a normal contrib module. And then install and start the node.js service. After installing in Drupal you can check the status of the node.js service at: /admin/structure/msm/status.
+Install like a normal contrib module. And then install and start the node.js service. After installing in Drupal you can check the status of the node.js service at: /admin/msm/status.
 
 ## Configure Node.js Service & MongoDB
 

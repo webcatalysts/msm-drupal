@@ -21,27 +21,27 @@ function msm_database_list() {
     );
     if ($dbinfo['enabled']) {
       $actions['#links'][] = array(
-        'href' => 'admin/structure/msm/db/' . $dbinfo['name'] . '/edit',
+        'href' => 'admin/msm/db/' . $dbinfo['name'] . '/edit',
         'title' => t('Edit'),
       );
       $actions['#links'][] = array(
-        'href' => 'admin/structure/msm/db/' . $dbinfo['name'] . '/disable',
+        'href' => 'admin/msm/db/' . $dbinfo['name'] . '/disable',
         'title' => t('Disable'),
       );
       $actions['#links'][] = array(
-        'href' => sprintf('admin/structure/msm/db/%s/delete', $dbinfo['name']),
+        'href' => sprintf('admin/msm/db/%s/delete', $dbinfo['name']),
         'title' => t('Delete'),
       );
     }
     else {
       $actions['#links'][] = array(
-        'href' => 'admin/structure/msm/db/enable/' . $dbinfo['name'],
+        'href' => 'admin/msm/db/enable/' . $dbinfo['name'],
         'title' => t('Enable'),
       );
     }
 
     $build['existing']['#rows'][] = array(
-      $dbinfo['enabled'] ? l($dbinfo['name'], sprintf('admin/structure/msm/db/%s', $dbinfo['name'])) : $dbinfo['name'],
+      $dbinfo['enabled'] ? l($dbinfo['name'], sprintf('admin/msm/db/%s', $dbinfo['name'])) : $dbinfo['name'],
       format_size($dbinfo['sizeOnDisk']),
       $dbinfo['empty'] ? t('Yes') : t('No'),
       render($actions),
@@ -65,16 +65,16 @@ function msm_database_view($db) {
     $has_schema = !empty($col['schema']);
     if ($has_schema) {
       $actions['#links']['manage_schema'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/schema', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/schema', $col['_id']),
         'title' => t('Manage Schema'),
       );
       $actions['#links']['reset_schema'] = array(
-        'href' => sprintf('admin/structure/msm/col/%s/reset', $col['_id']),
+        'href' => sprintf('admin/msm/col/%s/reset', $col['_id']),
         'title' => t('Reset Schema'),
       );
       if (!isset($col['locked'])) {
         $actions['#links']['delete'] = array(
-          'href' => sprintf('admin/structure/msm/col/%s/delete', $col['_id']),
+          'href' => sprintf('admin/msm/col/%s/delete', $col['_id']),
           'title' => t('Delete'),
         );
       }
@@ -82,7 +82,7 @@ function msm_database_view($db) {
     else {
       if (empty($col['type']) && !isset($col['analyzingSchema'])) {
         $actions['#links']['analyze_schema'] = array(
-          'href' => sprintf('admin/structure/msm/db/%s/analyze-schema/%s', $db['name'], $col['collection']),
+          'href' => sprintf('admin/msm/db/%s/analyze-schema/%s', $db['name'], $col['collection']),
           'title' => t('Analyze & Import Schema'),
         );
       }
@@ -139,19 +139,19 @@ function msm_database_add_form_validate(&$form, &$form_state) {
 function msm_database_add_form_submit($form, &$form_state) {
   $result = msm_request(sprintf('database/%s/enable', check_plain($form_state['values']['name'])));
   if ($result['ok'] === 1) {
-    $form_state['redirect'] = sprintf('admin/structure/msm/db/%s', $form_state['values']['name']);
+    $form_state['redirect'] = sprintf('admin/msm/db/%s', $form_state['values']['name']);
   }
   form_set_error(null, t('An error occurred while attempting to enable the @name database', array('@name' => $form_state['values']['name'])));
 }
 
 function msm_database_enable($name) {
   $result = msm_request('database/' . check_plain($name) . '/enable');
-  drupal_goto('admin/structure/msm/db');
+  drupal_goto('admin/msm/db');
 }
 
 function msm_database_disable($db) {
   $result = msm_request('database/' . $db['name'] . '/disable');
-  drupal_goto('admin/structure/msm/db');
+  drupal_goto('admin/msm/db');
 }
 
 function msm_database_delete_form($form, &$form_state, $db) {
@@ -169,14 +169,14 @@ function msm_database_delete_form($form, &$form_state, $db) {
         '#type' => 'link',
         '#prefix' => '<li>',
         '#suffix' => '</li>',
-        '#href' => sprintf('admin/structure/msm/col/%s', $col['_id']),
+        '#href' => sprintf('admin/msm/col/%s', $col['_id']),
         '#title' => $col['name'],
       );
     }
   }
   return confirm_form($form,
     t('Are you sure you want to delete %name?', array('%name' => $db['name'])),
-    'admin/structure/msm/db/' . $db['name'],
+    'admin/msm/db/' . $db['name'],
     t('Only associated schema information will be removed, no user data will be deleted.'),
     t('Remove Database Schema'),
     t('Cancel')
@@ -185,7 +185,7 @@ function msm_database_delete_form($form, &$form_state, $db) {
 
 function msm_database_delete_form_submit($form, &$form_state) {
   $result = msm_request(sprintf('database/%s/delete', $form_state['db']['name']));
-  $form_state['redirect'] = 'admin/structure/msm/db';
+  $form_state['redirect'] = 'admin/msm/db';
 }
 
 function msm_database_analyze_schema_form($form, &$form_state, $db, $cname) {
@@ -226,7 +226,7 @@ function msm_database_analyze_schema_form($form, &$form_state, $db, $cname) {
   $form['actions']['cancel'] = array(
     '#type' => 'link',
     '#title' => t('Cancel'),
-    '#href' => sprintf('admin/structure/msm/db/%s', $form['#db']['name']),
+    '#href' => sprintf('admin/msm/db/%s', $form['#db']['name']),
   );
   return $form;
 }
@@ -235,9 +235,23 @@ function msm_database_analyze_schema_form_submit($form, &$form_state) {
   $options = array('limit' => $form_state['values']['limit']);
   $result = msm_post(sprintf('database/%s/analyze/%s', $form['#db']['name'], $form['#cname']), $options);
   if ($result['ok']) {
-    $form_state['redirect'] = sprintf('admin/structure/msm/db/%s', $form['#db']['name']);
+    $form_state['redirect'] = sprintf('admin/msm/db/%s', $form['#db']['name']);
   }
   else {
     form_set_error('', t('An error has occured: @err', array('@err' => $result['error'])));
   }
+}
+
+function msm_database_uninitialized_collection_options($database) {
+  $options = array();
+  foreach ($database['collections'] AS $col) {
+    if (empty($col['type'])) {
+      $options[$col['collection']] = t('@text (@databaseName:@collectionName)', array(
+        '@text' => $col['name'],
+        '@databaseName' => $col['database'],
+        '@collectionName' => $col['collection'],
+      ));
+    }
+  }
+  return $options;
 }

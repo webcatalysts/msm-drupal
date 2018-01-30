@@ -119,7 +119,17 @@ DatabaseProvider.prototype.findOne = async function(query, callback) {
     delete doc._id;
     let existingCollections = await dbsrv.con.db(doc.name).listCollections().toArray();
     dbsrv.con.close();
-    let cols = await this.collectionProvider.find({database: doc.name});
+    let cols = await this.collectionProvider.find({database: doc.name},{
+        _id: 1,
+        name: 1,
+        type: 1,
+        collection: 1,
+        database: 1,
+        source: 1,
+        enabled: 1,
+        weight: 1,
+        dependencies: 1,
+    });
     doc.collections = mergeCollections(doc.name, existingCollections, cols);
     return doc;
 }

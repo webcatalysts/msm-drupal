@@ -100,7 +100,7 @@ function msm_pipeline_form_submit($form, &$form_state) {
     ),
   ));
   if ($result['ok']) {
-    $form_state['redirect'] = sprintf('admin/structure/msm/col/%s/schema', $collectionId);
+    $form_state['redirect'] = sprintf('admin/msm/col/%s/schema', $collectionId);
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
 }

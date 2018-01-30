@@ -88,6 +88,35 @@ function flattenSchemaFields(schema, ns) {
   return result;
 }
 
+function flattenResults(results) {
+    var ret = [];
+    results.forEach(function (result) {
+        ret.push(flattenResult(result));
+    });
+    return ret;
+}
+function flattenResult(result, ns = null) {
+    console.log('flatten');
+    var ret = {}
+    if (typeof result === 'object') {
+        Object.keys(result).forEach(function(key) {
+            var cns = ns ? ns + '.' + key : key;
+            var value = result[key];
+            if (value instanceof Array) {
+                ret[cns] = value;
+            }
+            else if (value instanceof Object) {
+                var subret = flattenResult(value, cns);
+                ret = Object.assign({}, ret, subret);
+            }
+            else {
+                ret[cns] = value;
+            }
+        });
+    }
+    return ret;
+}
+
 function expandSchema(fields) {
     var fieldNames = Object.keys(fields).sort();
     var numFields = fieldNames.length;
@@ -318,6 +347,7 @@ var sortSchema = function (schemaIn) {
 
 module.exports = {
     flattenSchemaFields: flattenSchemaFields,
+    flattenResults: flattenResults,
     projectSchema: projectSchema,
     analyzeSchema: analyzeSchema,
     extractSchema: extractSchema,

@@ -103,7 +103,7 @@ function theme_msm_variables_help($variables) {
 }
 
 function theme_msm_schema_result_tree($variables) {
-  $variables += array('level' => 0, 'ns' => null, 'slice' => 3);
+  $variables += array('level' => 0, 'ns' => null, 'array_item_limit' => 3);
   $fields = msm_schema_flatten_fields($variables['schema'], MSM_SCHEMA_FLATTEN_ALL);
   $result = $variables['result'];
   $header = array(t('Name'), t('Type'), t('Value'));
@@ -142,9 +142,9 @@ function theme_msm_schema_result_tree($variables) {
         }
         else {
           $tot = $hasvals ? count($arvals) : 0;
-          if ($tot > $variables['slice']) {
+          if ($tot > $variables['array_item_limit']) {
             $ardisp = t('(Displaying @num of @tot objects)', array(
-              '@num' => 3,
+              '@num' => $variables['array_item_limit'],
               '@tot' => $tot,
             ));
           }
@@ -186,7 +186,7 @@ function theme_msm_schema_result_tree($variables) {
     if ($field_info['type'] == 'array' && !empty($field_info['children'])) {
       if ($values = drupal_array_get_nested_value($result, $field_info['parents'])) {
         $skip_fields = array_merge($skip_fields, array_keys(msm_schema_flatten_fields($field_info['children'], MSM_SCHEMA_FLATTEN_ALL, $field_name)));
-        $values = array_slice($values, 0, $variables['slice']);
+        $values = array_slice($values, 0, $variables['array_item_limit']);
         foreach ($values AS $value) {
           $rows[] = array(array(
             'colspan' => 4,
@@ -195,6 +195,7 @@ function theme_msm_schema_result_tree($variables) {
               'result' => $value,
               'level' => $level,
               'ns' => $field_name,
+              'array_item_limit' => $variables['array_item_limit'],
             )),
           ));
         }
