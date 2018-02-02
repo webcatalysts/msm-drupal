@@ -9,30 +9,46 @@ class CacheableImportSource extends ImportSource {
         }
     }
     setCacheHandler (v) {
-        if (mapped instanceof Cache) {
+        this.cache = v;
+        return;
+        if (v instanceof Cache) {
             this.cache = v;
         }
-        else throw new Error('Cache handler must be an instance of Cache.');
+        else {
+            console.log(v);
+            throw new Error('Cache handler must be an instance of Cache. Received "' + typeof v + '" instead.');
+        }
     }
-    async get (path, params = {}, cacheLifetime = 0, callback = null) {
-        if (this.cache) { 
+    async get (path, params = {}, cacheLifetime = 0, skipCache = false) {
+        params = this.mergeParams(params);
+        if (!skipCache && cacheLifetime !== null && this.cache) { 
             var cacheKey = this.makeCacheKey(path, params);
-            var cacheResult = null;
-            if (cacheResult = this.cache.get(cacheKey)) {
+            let cacheResult = await this.cache.get(cacheKey);
+            if (cacheResult) {
+                console.log('Cache: HIT ' + cacheKey);
                 console.log(cacheResult);
                 return cacheResult;
             }
+            console.log('Cache: MISS');
         }
+
         var results = await super.get(path, params);
 
-        if (results && this.cache) {
-            this.cache.set(cacheKey, results, cacheLifetime);
+        if (cacheLifetime !== null && results && this.cache) {
+            console.log('setting cache: ' + cacheLifetime);
+            this.cache.set(cacheKey, results, cacheLifetime, function (err) {
+                if (err) throw new Error(err);
+                else console.log('cache success?!?');
+            });
         }
         return results;
     }
     makeCacheKey (path, params = {}) {
-        var paramscopy = params;
-        return path + JSON.stringify(paramscopy);
+        if (Object.keys(params).length) {
+            var paramscopy = params;
+            return path + JSON.stringify(paramscopy);
+        }
+        return path;
     }
 }
 

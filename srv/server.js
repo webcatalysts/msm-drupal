@@ -36,7 +36,6 @@ var settings = {};
 
 var bootUp = async function () {
     settings = await settingsProvider.load();
-    console.log(settings);
     if (settings.evalonboot) {
         eval(settings.evalonboot);
     }
@@ -321,6 +320,7 @@ app.post('/settings', async function (req, res) {
         let result = await settingsProvider.saveMany(req.body);
         let settings = await settingsProvider.load();
         res.send(settings);
+        process.exit(1);
     }
     else res.send(500, 'Empty request');
 });
@@ -354,6 +354,11 @@ app.get('/tests', async function (req, res) {
 app.get('/tests/run', async function (req, res) {
     testProvider.runAllTests();
     res.json({ok: 1});
+});
+
+app.get('/restart', function (req, res) {
+    res.send({ok: 1});
+    process.exit(1);
 });
 
 server.listen(port, ip);

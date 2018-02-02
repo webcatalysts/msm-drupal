@@ -5,12 +5,15 @@
     "main": "server.js",
     "private": true,
     "dependencies": {
+        "cache-manager-mongodb": "^0.1.7",
         "express": "3.x",
+        "forever": "^0.15.3",
         "fs": "0.0.1-security",
         "js-cache": "^1.0.2",
         "moment": "^2.20.1",
         "mongodb": "^2.2.34",
         "node-rest-client": "^3.1.0",
+        "node-rest-client-promise": "^3.0.0",
         "promise": "^8.0.1",
         "sleep": "^5.1.1",
         "socket.io": "^2.0.4",
@@ -29,7 +32,7 @@
     },
     "scripts": {
         "start": "node server.js",
-        "start-dev": "export TZ='America/New_York'; ./node_modules/.bin/nodemon server.js",
+        "start-dev": "export TZ='UTC'; ./node_modules/.bin/forever -c './node_modules/.bin/nodemon --exitcrash' server.js",
         "test": "IP=0.0.0.0 PORT=3030 mocha --timeout 5000 tests/*_test.js"
     }
 }

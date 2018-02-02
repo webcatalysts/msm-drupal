@@ -53,6 +53,7 @@ CollectionProcess.prototype.startRun = async function () {
         return;
     }
     this.items = await this.collectionProvider.find({
+        enabled: { '$ne': false },
     //}, { _id: 1, dependencies: 1, source: 1 }, { weight: 1 });
     }, { _id: 1, dependencies: 1, source: 1 });
 
@@ -120,7 +121,7 @@ CollectionProcess.prototype.checkProcess = async function () {
 
 CollectionProcess.prototype.runAllNext = function () {
     var index = this.iterator;
-    if (this.items[index]) {
+    if (typeof index !== 'undefined' && this.items[index]) {
         this.iterator++;
         this.collectionId = this.items[index]._id;
         return true;
@@ -139,6 +140,7 @@ CollectionProcess.prototype.run = async function (options = {}) {
         throw new Error('Collection %s could not be found.', this.collectionId);
     }
     if (this.collection.type != 'import' && this.collection.type != 'existing' && !this.collection.source) {
+        console.log(this.collection);
         throw new Error('Collection %s missing source attribute.', this.collection._id);
     }
     else if (this.collection.type && this.collection.source) {
