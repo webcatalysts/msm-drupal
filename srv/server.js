@@ -21,9 +21,9 @@ config = Object.assign({
     ipWhitelist: ['127.0.0.1'],
 }, config);
 
-var port     = process.env.PORT || 3000,
-    ip       = process.env.IP || '0.0.0.0';
-    mongoURL = config.db.uri;
+var port     = config.port || process.env.PORT || 3000,
+    ip       = config.ip || process.env.IP || '0.0.0.0';
+    mongoURL = config.db.uri || 'mongodb://localhost:27017/test';
 
 var databaseWrapper = new DatabaseWrapper(mongoURL);
 var settingsProvider = new SettingsProvider(databaseWrapper, config.settingsCollectionName);
