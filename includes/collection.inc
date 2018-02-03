@@ -109,6 +109,7 @@ function msm_collection_view(array $collection, array $options = array()) {
     'info' => TRUE,
     'schema_info' => TRUE,
     'schema' => TRUE,
+    'test_result' => TRUE,
   );
   $module_path = drupal_get_path('module', 'msm');
   $build = array(
@@ -139,17 +140,17 @@ function msm_collection_view(array $collection, array $options = array()) {
       $build['#info']['#items'][] = array(t('Source Collection ID'), l($collection['source'], 'admin/msm/col/' . $collection['source']));
     }
     if (!empty($collection['dependencies'])) {
-        $deplinks = [];
-        foreach ($collection['dependencies'] AS $dep) {
-            $deplinks[] = array(
-                'href' => sprintf('admin/msm/col/%s', $dep),
-                'title' => $dep,
-            );
-        }
-        $build['#info']['#items']['dependencies'] = array(
-            t('Dependencies: (@count)', array('@count' => count($collection['dependencies']))),
-            theme('links', array('links' => $deplinks))
+      $deplinks = [];
+      foreach ($collection['dependencies'] AS $dep) {
+        $deplinks[] = array(
+          'href' => sprintf('admin/msm/col/%s', $dep),
+          'title' => $dep,
         );
+      }
+      $build['#info']['#items']['dependencies'] = array(
+        t('Dependencies: (@count)', array('@count' => count($collection['dependencies']))),
+        theme('links', array('links' => $deplinks))
+      );
     }
   }
   if (!empty($collection['lastProcessed'])) {
@@ -197,6 +198,21 @@ function msm_collection_view(array $collection, array $options = array()) {
       $build['#schema'] = array(
         '#markup' => t('No schema exists yet.'),
       );
+    }
+  }
+  if ($options['test_result']) {
+    if ($test = msm_collection_test_load($collection['_id'])) {
+      $build['#test_result'] = array(
+        '#theme' => 'msm_info',
+        '#title' => t('Test Result'),
+        '#items' => array(
+          'result' => array(t('Result'), $test['pass'] ? t('Pass') : t('FAIL')),
+          'last' => array(t('Last test ran on'), $test['last']),
+        ),
+      );
+      if (!$test['pass']) {
+        $build['#test_result']['#items']['error'] = array(t('Error'), $test['error']);
+      }
     }
   }
   return $build;
@@ -355,8 +371,16 @@ function msm_collection_form_validate(&$form, &$form_state) {
     $document[$key] = $values[$key];
   }
   $document['persist'] = intval($document['persist']) ? true : false;
+  if (empty($document['source'])) unset($document['source']);
   if ($form['#is_new'] && empty($document['_id']) && !empty($document['database']) && !empty($document['collection'])) {
-    $form_state['collection_id'] = sprintf('%s:%s', $document['database'], $document['collection']);
+    $collection_id = sprintf('%s:%s', $document['database'], $document['collection']);
+    if (!$result = msm_post('collections', array('limit' => 1, 'query' => array('_id' => $collection_id)))) {
+      $form_state['collection_id'] = $collection_id;
+    }
+    else {
+      $parents = implode('][', $form['collection']['#parents']);
+      form_set_error($parents, t('Collection ID (@id) is already in use.', array('@id' => $collection_id)));
+    }
   }
 }
 
@@ -377,12 +401,66 @@ function msm_collection_form_submit($form, &$form_state) {
 }
 
 function msm_collection_clone_form($form, &$form_state, array $collection) {
+  $form_state['original_collection_id'] = $collection['_id'];
   $cloned = $collection;
   unset($cloned['_id']);
   unset($cloned['collection']);
   $cloned['name'] = sprintf('Clone of %s', $collection['name']);
-  $form = msm_collection_form($form, $form_state, $cloned);
+  $values = empty($form_state['clone']) ? array() : $form_state['clone'];
+  $form['clone'] = msm_collection_form($form, $values, $cloned);
+  unset($form['clone']['actions']);
+  $form['clone'] += array(
+    '#tree' => TRUE,
+    '#type' => 'fieldset',
+  );
+  $form['options'] = array('#tree' => TRUE);
+  $form['options']['delete'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Delete this collection after cloning.'),
+  );
+  $form['options']['process'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Trigger processing on the newly cloned collection.'),
+  );
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Clone collection'),
+  );
+  $form['actions']['cancel'] = array(
+    '#type' => 'link',
+    '#href' => 'admin/msm/col/' . $collection['_id'],
+    '#title' => t('Cancel'),
+  );
   return $form;
+}
+
+function msm_collection_clone_form_validate(&$form, &$form_state) {
+  $values = array('values' => $form_state['values']['clone']);
+  msm_collection_form_validate($form['clone'], $values);
+  $form_state['clone'] = $values;
+}
+
+
+function msm_collection_clone_form_submit(&$form, &$form_state) {
+  if (!$data = msm_request(sprintf('collection/%s', $form_state['original_collection_id']))) {
+    form_set_error('', t('An error occurred.'));
+  }
+  unset($data['_id']);
+  $data = array_merge($data, $form_state['clone']['document']);
+  $result = msm_post(sprintf('collection/create/%s', $form_state['clone']['collection_id']), $data);
+  if ($result['ok']) {
+    $form_state['redirect'] = sprintf('admin/msm/col/%s', $form_state['clone']['collection_id']);
+  }
+  else form_set_error('', t('An error has occurred: @error', array('@error' => $result['error'])));
+
+  $options = $form_state['values']['options'];
+  if ($options['delete']) {
+    msm_request(sprintf('collection/%s/delete', $form_state['original_collection_id']));
+  }
+  if ($options['process']) {
+    msm_request(sprintf('collection/%s/process', $form_state['clone']['collection_id']));
+  }
 }
 
 function msm_collection_create_form($form, &$form_state) {
@@ -555,6 +633,15 @@ function msm_collection_create_form_submit($form, &$form_state) {
 
 function msm_collection_delete_form($form, &$form_state, $collection) {
   $form['#collection'] = $collection;
+  if ($result = msm_request(sprintf('collection/%s/dependents', $collection['_id']))) {
+    $form['dependents'] = array(
+      '#type' => 'markup',
+      '#markup' => theme('item_list', array(
+        'items' => $result,
+        'title' => t('Collections dependending on @name:', array('@name' => $collection['name'])),
+      )),
+    );
+  }
   return confirm_form($form,
     t('Are you sure you want to delete all schema information for @id', array('@id' => $collection['_id'])),
     sprintf('admin/msm/col/%s', $collection['_id']),
@@ -927,4 +1014,125 @@ function msm_collection_schema_analyze_form_submit($form, &$form_state) {
   $result = msm_post(sprintf('collection/%s/analyze', $collection['_id']), $options);
   $form_state['redirect'] = sprintf('admin/msm/col/%s/schema/view', $collection['_id']);
   drupal_set_message(t('The schema is being analyzed. Refresh the page momentarily as necessary.'));
+}
+
+function msm_collection_tests_form($form, &$form_state, $collection) {
+  $form['#collection_id'] = $collection['_id'];
+  if (empty($form_state['values']['test'])) {
+    try {
+      $test = msm_request(sprintf('test/%s', $collection['_id']));
+    }
+    catch (Exception $e) {
+      $test = array();
+    }
+  }
+  else {
+    $test = $form_state['values']['test'];
+  }
+  $test += array(
+    'collection' => $collection['collection'],
+    'database' => $collection['database'],
+    'units' => array(),
+  );
+  $test['units'] += array(0 => array());
+  $test['units'][0] += array(
+    'code' => "let count = await col.count();\nassert(count, 'Collection is empty');",
+  );
+
+  if ($test['last']) {
+    $form['result'] = array(
+      '#type' => 'markup',
+      '#markup' => theme('table', array(
+        'header' => array(
+          t('Result'),
+          t('Error'),
+          t('Last test ran'),
+        ),
+        'rows' => array(array(
+          $test['pass'] ? t('Pass') : t('FAIL'),
+          empty($test['error']) ? '-' : $test['error'],
+          $test['last'],
+        )),
+      )),
+    );
+  }
+
+  $form['test'] = array('#tree' => TRUE);
+  $form['test']['_id'] = array(
+    '#type' => 'value',
+    '#value' => $collection['_id'],
+  );
+  $form['test']['collection'] = array(
+    '#type' => 'value',
+    '#value' => $test['collection'],
+  );
+  $form['test']['database'] = array(
+    '#type' => 'value',
+    '#value' => $test['database'],
+  );
+  $form['test']['code'] = array(
+    '#title' => t('Code'),
+    '#type' => 'text_format',
+    '#format' => 'catalyst_js',
+    '#after_build' => array('msm_text_format_after_build'),
+    '#element_validate' => array('msm_text_format_validate'),
+    '#required' => TRUE,
+    '#rows' => 20,
+    '#default_value' => $test['units'][0]['code'],
+  );
+  $form['options'] = array('#tree' => TRUE);
+  $form['options']['run_test'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Run test after saving.'),
+    '#default_value' => 1,
+  );
+  $form['options']['lock'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Lock collection after passing test.'),
+    '#default_value' => !empty($collection['locked']),
+  );
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  $form['actions']['cancel'] = array(
+    '#type' => 'link',
+    '#href' => sprintf('admin/msm/col/%s', $collection['_id']),
+    '#title' => t('Cancel'),
+  );
+  return $form;
+}
+
+function msm_collection_tests_form_submit($form, &$form_state) {
+  $test = $form_state['values']['test'];
+  $test['units'] = array(array(
+    'description' => 'Collection Base Tests',
+    'code' => $test['code'],
+  ));
+  unset($test['code']);
+  $result = msm_post(sprintf('test/%s', $test['_id']), $test);
+  if ($result['ok']) {
+    $options = $form_state['values']['options'];
+    if ($options['run_test']) {
+      $testresult = msm_request(sprintf('test/%s/run', $test['_id']));
+      if ($testresult['result']['pass'] && $options['lock']) {
+        $res2 = msm_post(sprintf('collection/%s/update', $form['#collection_id']), [
+          '$set' => ['locked' => TRUE]
+        ]);
+        if (!$res2['ok']) {
+          form_set_error('', t('An error has occured: @error', array('@error' => $res2['error'])));
+        }
+      }
+    }
+  }
+}
+
+function msm_collection_test_load($collection_id) {
+  try {
+    return msm_request(sprintf('test/%s', $collection_id));
+  }
+  catch (Exception $e) {
+    return null;
+  }
 }

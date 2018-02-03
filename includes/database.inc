@@ -119,6 +119,7 @@ function msm_database_add_form($form, &$form_state) {
     '#type' => 'select',
     '#options' => array_combine($weights, $weights),
     '#default_value' => 0,
+    '#chosen' => FALSE,
   );
   $form['submit'] = array(
     '#value' => t('Create database'),

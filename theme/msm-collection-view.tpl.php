@@ -13,5 +13,6 @@
     <?php print render($info); ?>
     <?php print render($schema_info); ?>
   <?php endif; ?>
+    <?php print render($test_result); ?>
   <?php print render($schema); ?>
 </div>

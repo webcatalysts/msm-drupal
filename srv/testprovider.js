@@ -59,6 +59,7 @@ TestProvider.prototype.enable = async function(id, callback) {
 }
 TestProvider.prototype.runTest = async function (id, options = {}) {
     let testDoc = await this.findOne({_id: id});
+    let testResult = { last: new Date };
     if (testDoc) {
         console.log('Running test: %s', id);
         await this.databaseWrapper.connect();
@@ -69,14 +70,17 @@ TestProvider.prototype.runTest = async function (id, options = {}) {
             var result = await this.evalTestUnit(testDoc.units[i], testDoc, col, this.databaseWrapper.connection, db, options);
             if (result) {
                 console.log('Fail: %s', result);
-                this.save(testDoc._id, {
-                    '$set': { error: result, pass: false },
-                });
-                return;
+                testResult.error = result;
+                testResult.pass = false;
+                testResult.unitFailed = i;
+                await this.save(testDoc._id, { '$set': testResult });
+                return testResult;
             }
         }
-        this.save(testDoc._id, {'$set': { pass: true }, '$unset': { error: "" }});
+        testResult.pass = true;
+        await this.save(testDoc._id, {'$set': testResult, '$unset': { error: "", unitFailed: "" }});
         console.log('Finished test: %s', id);
+        return testResult;
     }
 }
 TestProvider.prototype.evalTestUnit = async function (testUnit, testDoc, col, con, db, options = {}) {

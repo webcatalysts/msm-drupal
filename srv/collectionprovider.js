@@ -243,5 +243,30 @@ CollectionProvider.prototype.updateCollectionOptions = async function (collectio
     await this.save(collectionId, { '$set': setOptions });
 }
 
+CollectionProvider.prototype.getDependents = async function (collectionId) {
+    var ucols = await this.find({}, {_id: 1, source: 1, dependencies: 1});
+    var cols = {};
+    ucols.forEach(function (ucol) {
+        var col = { dependencies: [], dependents: [] };
+        if (ucol.source) {
+            col.dependencies.push(ucol.source);
+        }
+        if (ucol.dependencies && ucol.dependencies.length) {
+            col.dependencies.forEach(function (depId) {
+                col.dependencies.push(depId);
+            });
+        }
+        cols[ucol._id] = col;
+    });
+    if (typeof cols[collectionId] === 'undefined') return null;
+    Object.keys(cols).forEach(function (colId) {
+        var col = cols[colId];
+        col.dependencies.forEach(function (depId) {
+            cols[depId].dependents.push(colId);
+        });
+    });
+    return cols[collectionId].dependents;
+}
+
 exports.CollectionProvider = CollectionProvider;
 exports.makeId = CollectionProvider.makeId;

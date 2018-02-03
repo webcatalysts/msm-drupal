@@ -203,6 +203,11 @@ app.post('/collection/:id/query', async function (req, res) {
     res.send(result);
 });
 
+app.get('/collection/:id/dependents', async function (req, res) {
+    var result = await collectionProvider.getDependents(req.params.id);
+    res.send(result);
+});
+
 app.get('/collection/:id/analyze', async function (req, res) {
     collectionProvider.analyzeSchema(req.params.id, {})
         .then(function (result) {
@@ -340,8 +345,8 @@ app.post('/test/:id', async function (req, res) {
 app.get('/test/:id/run', async function (req, res) {
     let testDoc = await testProvider.findOne({_id: req.params.id}, {_id: 1});
     if (testDoc) {
-        testProvider.runTest(testDoc._id);
-        res.send({ok: 1});
+        var result = await testProvider.runTest(testDoc._id);
+        res.send({ok: 1, result: result});
     }
     else res.send(404, {ok: 0, error: "Test not found"});
 });

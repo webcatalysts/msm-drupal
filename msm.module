@@ -96,7 +96,7 @@ function msm_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_clone_form', 3),
     'access callback' => 'msm_collection_access',
-    'access arguments' => array(3, 'edit'),
+    'access arguments' => array(3, 'view'),
     'type' => MENU_LOCAL_TASK,
     'file path' => $inc_path,
     'file' => 'collection.inc',
@@ -112,6 +112,17 @@ function msm_menu() {
     'file path' => $inc_path,
     'file' => 'collection.inc',
     'weight' => -90,
+  );
+  $items['admin/msm/col/%msm_collection/tests'] = array(
+    'title' => 'Tests',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_collection_tests_form', 3),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'edit'),
+    'type' => MENU_LOCAL_TASK,
+    'file path' => $inc_path,
+    'file' => 'collection.inc',
+    'weight' => -1,
   );
   $items['admin/msm/col/%msm_collection/map-reduce'] = array(
     'title' => 'Map Reduce',
@@ -219,7 +230,8 @@ function msm_menu() {
     'title' => 'Delete',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_delete_form', 3),
-    'access arguments' => array('administer msm'),
+    'access callback' => 'msm_collection_access',
+    'access arguments' => array(3, 'delete'),
     'type' => MENU_LOCAL_TASK,
     'weight' => 10,
     'file path' => $inc_path,
@@ -233,7 +245,6 @@ function msm_menu() {
     'access arguments' => array('administer msm'),
     'file path' => $inc_path,
     'file' => 'database.inc',
-    'type' => MENU_LOCAL_TASK,
   );
   $items['admin/msm/db/add'] = array(
     'title' => 'Add database',
@@ -313,6 +324,7 @@ function msm_theme() {
         'info' => array(),
         'schema_info' => array(),
         'schema' => array(),
+        'test_result' => array(),
       ),
       'path' => $path,
     ),
@@ -442,27 +454,24 @@ function msm_collection_access($collection, $op = null) {
     return !empty($collection['_id']);
   }
 
-  if ($collection['type'] == 'existing') {
     switch ($op) {
       case 'view':
-      case 'edit':
       case 'schema-view':
-      case 'schema-analyze':
         return TRUE;
+      case 'schema-analyze':
+      case 'edit':
       case 'delete':
-        return !$collection['published'];
+        return empty($collection['locked']);
       case 'settings':
+      case 'schema-reset':
+      case 'reset':
+        return !empty($collection['schema']) && empty($collection['locked']);
       case 'schema-edit':
       case 'endpoint':
         return !empty($collection['schema']);
-      case 'schema-reset':
-      case 'reset':
-        return empty($collection['schema']);
-      case 'endpoint':
-        return $collection['enabled'];
       default: return FALSE;
     }
-  }
+  return FALSE;
   switch ($op) {
     case 'edit': return TRUE;
     case 'view':
@@ -751,6 +760,7 @@ function msm_settings_form($form, &$form_state, $settings = NULL) {
 }
 
 function msm_settings_form_submit($form, &$form_state) {
+  dsm($form_state);
   $result = msm_post('settings', $form_state['values']['settings']);
   sleep(1);
 }
