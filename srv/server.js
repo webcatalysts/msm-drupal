@@ -19,6 +19,13 @@ config = Object.assign({
     databasesCollectionName: 'msm_databases',
     collectionsCollectionName: 'msm_collections',
     ipWhitelist: ['127.0.0.1'],
+    authenticate: function (req, scope, config) {
+        var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        var result = config.ipWhitelist.indexOf(ip) >= 0;
+        console.log('Authentication attempt from ip %s: %s', ip, result ? ' Success.' : 'Denied.');
+        return result;
+    },
+    accessDeniedMessage: 'Access denied.',
 }, config);
 
 var port     = config.port || process.env.PORT || 3000,
@@ -31,6 +38,15 @@ var databaseProvider = new DatabaseProvider(databaseWrapper, 'msm');
 var collectionProvider = new CollectionProvider(databaseWrapper, databaseProvider, 'msm');
 var testProvider = new TestProvider(databaseWrapper, 'msm');
 databaseProvider.setCollectionProvider(collectionProvider);
+
+
+app.use(function (req, res, next) {
+  if (!config.authenticate(req, {}, config)) {
+    res.json(403, { ok: 0, error: config.accessDeniedMessage });
+    return;
+  }
+  next();
+});
 
 var settings = {};
 
