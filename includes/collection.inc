@@ -3,7 +3,7 @@
 function msm_collection_list() {
   $collections = msm_post('collections', [
     'project' => ['name' => 1, 'database' => 1, 'collection' => 1, 'type' => 1,
-      'enabled' => 1, 'source' => 1, 'dependencies' => 1,
+      'enabled' => 1, 'source' => 1, 'dependencies' => 1, 'locked' => 1,
     ],
     'sort' => ['weight' => 1, 'name' => 1, '_id' => 1],
   ]);
@@ -71,10 +71,12 @@ function msm_collection_list() {
         'title' => t('Process'),
       );
     }
-    $actions['#links']['delete'] = array(
-      'href' => sprintf('admin/msm/col/%s/delete', $col['_id']),
-      'title' => t('Delete'),
-    );
+    if (msm_collection_access($col, 'delete')) {
+      $actions['#links']['delete'] = array(
+        'href' => sprintf('admin/msm/col/%s/delete', $col['_id']),
+        'title' => t('Delete'),
+      );
+    }
     $dependencies = sprintf('<em>%s</em>', t('None'));
     if (!empty($col['dependencies'])) {
       $dependencies = array(

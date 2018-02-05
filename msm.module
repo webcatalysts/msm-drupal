@@ -467,10 +467,22 @@ function msm_collection_access($collection, $op = null) {
       case 'reset':
         return !empty($collection['schema']) && empty($collection['locked']);
       case 'schema-edit':
+      case 'schema':
       case 'endpoint':
         return !empty($collection['schema']);
-      default: return FALSE;
+      case 'eval':
+	return in_array($collection['type'], ['custom', 'import']) && empty($collection['locked']);
+      case 'pipeline':
+	return in_array($collection['type'], ['aggregation']) && empty($collection['locked']);
+      case 'mapReduce':
+	return in_array($collection['type'], ['mapReduce']) && empty($collection['locked']);
+      case 'process':
+	return $collection['enabled'] && !empty($collection['schema']);
+      default:
+	dsm($op);
+	return FALSE;
     }
+dsm($op);
   return FALSE;
   switch ($op) {
     case 'edit': return TRUE;

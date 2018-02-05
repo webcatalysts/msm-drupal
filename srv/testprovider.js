@@ -85,6 +85,25 @@ TestProvider.prototype.runTest = async function (id, options = {}) {
 }
 TestProvider.prototype.evalTestUnit = async function (testUnit, testDoc, col, con, db, options = {}) {
     try {
+        var testExpr = {
+          sumUnemptyString: function (val) { return { '$sum': { '$cond': { if: { '$and': [ { '$eq': [{ '$type': val}, 'string'] }, { '$ne': [val, ''] } ]}, then: 1, else: 0 }}}; },
+          sumPositiveInteger: function (val) { return {'$sum': {'$cond': {if: {'$and': [{'$eq': [{ '$type': val}, 'int']}, {'$gt': [val, 0]}]}, then: 1, else: 0 }}}; },
+          sumEqual: function (val1, val2) { return { '$sum': {'$cond': {if: {'$eq': [val1,val2]}, then: 1, else: 0}}} },
+          sumBetween: function (val, start, end) { return { '$sum': {'$cond': {if: {'$and': [{'$gte': [val,start]},{'$lte':[val,end]}]}, then: 1, else: 0 }}}; },
+          sumGreaterThan: function (val, gtv) { return { '$sum': {'$cond': {if: {'$gt': [val,gtv]}, then: 1, else: 0 }}}; },
+          sumGreaterThanEqualTo: function (val, gtev) { return { '$sum': {'$cond': {if: {'$gte': [val,gtev]}, then: 1, else: 0 }}}; },
+          sumLessThan: function (val, ltv) { return { '$sum': {'$cond': {if: {'$lt': [val,ltv]}, then: 1, else: 0 }}}; },
+          sumLessThanEqualTo: function (val, ltev) { return { '$sum': {'$cond': {if: {'$lte': [val,ltev]}, then: 1, else: 0 }}}; },
+          sumIsObject: function (val) { return { '$sum': { '$cond': { if: { '$eq': [{ '$type': val}, 'object'] }, then: 1, else: 0 } } }; },
+          sumValidDate: function (val, md = null) {
+            md = md ? md : new Date(1000); // 1970-01-01T00:00:01 - Detect empty dates
+            return { '$sum': { '$cond': {
+              if: { '$and': [{ '$eq': [{ '$type': val}, 'date'] }, { '$gte': [val, md] }] },
+              then: 1,
+              else: 0
+            }}};
+          }
+        };
         eval('var evalTestUnit = async function (testDoc, col, con, db) {' + testUnit.code + '; con.close(); };');
         await evalTestUnit(testDoc, col, con, db);
     }
