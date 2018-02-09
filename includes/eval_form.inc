@@ -56,6 +56,11 @@ function msm_eval_form($form, &$form_state, array $collection) {
     '#options' => $options,
     '#default_value' => $collection['dependencies'],
   );
+  $form['options'] = array('#tree' => TRUE);
+  $form['options']['increment_version'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Increment Schema Version'),
+  );
   $form['#collection'] = $collection;
 
   $help = array();
@@ -140,7 +145,9 @@ function msm_eval_form_submit($form, &$form_state) {
     $update['$set']['dependencies'] = array_keys($dependencies);
   }
   else { $update['$unset'] = array('dependencies' => ''); }
-dsm($update);
+  if ($form_state['values']['options']['increment_version']) {
+    $update['$set']['version'] = md5($update['$set']['eval']['code']);
+  }
   $result = msm_post(sprintf($path, $collectionId), $update);
 
   if ($result['ok']) {

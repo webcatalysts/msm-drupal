@@ -205,6 +205,20 @@ CollectionProvider.prototype.query = async function (collectionId, params = {}, 
     }
 }
 
+CollectionProvider.prototype.getSchema = async function (colId, options = {}) {
+    var Schema = require('./schema');
+    options = Object.assign({project: null, flatten: false}, options); 
+    let col = await this.findOne({_id: colId});
+    let schema = col.schema;
+    if (options.project) {
+        schema = Schema.projectSchema(options.project, schema);
+    }
+    if (options.flatten) {
+        schema = Schema.flattenSchemaFields(schema);
+    }
+    return schema;
+}
+
 CollectionProvider.prototype.resetSchema = async function (databaseName, collectionName, callback) {
     let result = await this.save(databaseName, collectionName, { "$set": { enabled: false }, "$unset": { schema: "" } });
     return result;

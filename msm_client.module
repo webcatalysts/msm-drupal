@@ -17,6 +17,10 @@ function msm_request($path) {
 }
 
 function msm_url($path) {
+  $args = func_get_args();
+  if (count($args) > 1) {
+    $path = call_user_func_array('sprintf', $args);
+  }
   if (strpos($path, '/') !== 0) $path = '/' . $path;
   return variable_get('msm_host', 'http://127.0.0.1:3000') . $path;
 }

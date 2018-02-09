@@ -1,8 +1,10 @@
+//'use strict';
+
 var config = require('./config');
 var express = require('express');
 var app = express();
 var server  = require('http').Server(app);
-app.locals.socket = require('socket.io')(server);
+var io = require('socket.io')(server);
 
 SettingsProvider = require('./settingsprovider').SettingsProvider;
 TestProvider = require('./testprovider').TestProvider;
@@ -57,8 +59,6 @@ var bootUp = async function () {
     }
 }
 bootUp();
-
-
 app.configure(function() {
     app.set('port', port);
     app.use(express.bodyParser());
@@ -77,11 +77,19 @@ app.get('/', function (req, res) {
 
 // Get the db server status
 app.get('/status', async function (req, res) {
+    res.sendfile(__dirname + '/status.html');
+    return;
+
     let con = await databaseWrapper.connect();
     let info = await con.db('admin').admin().serverStatus();
     con.close();
-    app.locals.socket.emit('status', info);
-    res.send(info);
+    var sio = io.of('/status')
+    sio.on('connect', (socket) => {
+        socket.emit('status', info);
+        console.log('emit status');
+    });
+    res.json({ok: 1});
+    return;
 });
 
 // Retrieve a list of existing and enabled databases.
@@ -199,6 +207,9 @@ app.post('/collection/:id/count', async function (req, res) {
 });
 
 app.post('/collection/:id/query', async function (req, res) {
+    res.setHeader('Access-Control-Allow-Origin', 'http://msm.dd:8083');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     var params = {
         query: req.body.query || {},
         project: req.body.project || false,
@@ -217,6 +228,21 @@ app.post('/collection/:id/query', async function (req, res) {
     console.log(options);
     let result = await collectionProvider.query(req.params.id, params, options);
     res.send(result);
+});
+
+app.get('/collection/:id/schema', async function (req, res) {
+    res.setHeader('Access-Control-Allow-Origin', 'http://msm.dd:8083');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+    var options = {
+        project: req.query.project || null,
+        flatten: req.query.flatten || false,
+    }
+    var result = await collectionProvider.getSchema(req.params.id, options);
+    res.send(result);
+});
+
+app.get('/collection/:id/socket', async function (req, res) {
 });
 
 app.get('/collection/:id/dependents', async function (req, res) {
@@ -381,6 +407,40 @@ app.get('/restart', function (req, res) {
     res.send({ok: 1});
     process.exit(1);
 });
+
+io.on('connect', (socket) => {
+    io.emit('textMessage', 'Connected from: ' + socket.client.conn.remoteAddress);
+    console.log('Connected from: ' + ip);
+    console.log(Object.keys(socket.client.conn.remoteAddress));
+    console.log(socket.client.conn.remoteAddress);
+    console.log(socket.client.id);
+});
+
+(async function (io, globalIO) {
+    let con;
+    let serverStatus;
+    var refreshServerStatus = async function (socket) {
+        con = await databaseWrapper.connect();
+        serverStatus = await con.db('admin').admin().serverStatus();
+        globalIO.emit('textMessage', 'status requested');
+        socket.emit('data', serverStatus);
+    };
+    io.on('connect', (socket) => {
+        io.emit('textMessage', 'Connected to /status from: ' + socket.client.conn.remoteAddress);
+        refreshServerStatus(socket);
+        socket.on('refresh', function () {
+            console.log('refresh requested');
+            refreshServerStatus(socket);
+        });
+    });
+})(io.of('/status'), io);
+
+(async function (io, globalIO) {
+    io.on('log', function (...args) {
+        console.log(args);
+        io.emit('textMessage', 'xyz');
+    });
+})(io.of('/console'), io);
 
 server.listen(port, ip);
 console.log('Server running on http://%s:%s', ip, port);
