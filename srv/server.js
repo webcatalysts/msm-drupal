@@ -77,19 +77,10 @@ app.get('/', function (req, res) {
 
 // Get the db server status
 app.get('/status', async function (req, res) {
-    res.sendfile(__dirname + '/status.html');
-    return;
-
     let con = await databaseWrapper.connect();
     let info = await con.db('admin').admin().serverStatus();
     con.close();
-    var sio = io.of('/status')
-    sio.on('connect', (socket) => {
-        socket.emit('status', info);
-        console.log('emit status');
-    });
-    res.json({ok: 1});
-    return;
+    res.json(info);
 });
 
 // Retrieve a list of existing and enabled databases.
