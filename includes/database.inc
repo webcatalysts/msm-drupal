@@ -1,9 +1,25 @@
 <?php
 
-function msm_database_list() {
-  $build = array();
-  $databases = msm_request('databases');
-  $build['existing'] = array(
+function msm_database_list($form, &$form_state) {
+  form_load_include($form_state, 'inc', 'msm', 'includes/database');
+  $values = empty($form_state['values']) ? array() : $form_state['values'];
+  $values += array(
+    'client_server_id' => 'default:default',
+  );
+  list($client_id, $server_id) = explode(':', $values['client_server_id']);
+  $html_id = drupal_html_class(__FUNCTION__);
+  $form['client_server_id'] = array(
+    '#type' => 'select',
+    '#options' => msm_clients_server_options(),
+    '#default_value' => $values['client_server_id'],
+    '#ajax' => array(
+      'callback' => 'msm_database_list_ajax',
+      'wrapper' => $html_id,
+    ),
+  );
+  $databases = msm_get('databases', array(), $server_id, $client_id);
+  $table = array();
+  $table['existing'] = array(
     '#theme' => 'table',
     '#header' => array(
       t('Database name'),
@@ -40,14 +56,19 @@ function msm_database_list() {
       );
     }
 
-    $build['existing']['#rows'][] = array(
+    $table['existing']['#rows'][] = array(
       $dbinfo['enabled'] ? l($dbinfo['name'], sprintf('admin/msm/db/%s', $dbinfo['name'])) : $dbinfo['name'],
       format_size($dbinfo['sizeOnDisk']),
       $dbinfo['empty'] ? t('Yes') : t('No'),
       render($actions),
     );
   }
-  return $build;
+  $form['list'] = array('#markup' => drupal_render($table));
+  return $form;
+}
+
+function msm_database_list_ajax($form, &$form_state) {
+  return $form;
 }
 
 function msm_database_view($db) {
@@ -145,9 +166,13 @@ function msm_database_add_form_submit($form, &$form_state) {
   form_set_error(null, t('An error occurred while attempting to enable the @name database', array('@name' => $form_state['values']['name'])));
 }
 
-function msm_database_enable($name) {
-  $result = msm_request('database/' . check_plain($name) . '/enable');
-  drupal_goto('admin/msm/db');
+function msm_database_enable($form, &$form_state) {
+  $result = msm_put(sprintf('database/%s', check_plain($database_name)),
+    array('enabled' => TRUE),
+    $form_state['server_id'],
+    $form_state['client_id']
+  );
+  return $form;
 }
 
 function msm_database_disable($db) {

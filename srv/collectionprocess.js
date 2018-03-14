@@ -52,6 +52,7 @@ CollectionProcess.prototype.startRun = async function () {
         console.log('Operation timed out..');
         return;
     }
+    (await this.collectionProvider.getCollection()).col.ensureIndex({enabled: 1});
     this.items = await this.collectionProvider.find({
         enabled: { '$ne': false },
     //}, { _id: 1, dependencies: 1, source: 1 }, { weight: 1 });

@@ -5,6 +5,7 @@ var express = require('express');
 var app = express();
 var server  = require('http').Server(app);
 var io = require('socket.io')(server);
+var _ = require('lodash');
 
 SettingsProvider = require('./settingsprovider').SettingsProvider;
 TestProvider = require('./testprovider').TestProvider;
@@ -59,10 +60,9 @@ var bootUp = async function () {
     }
 }
 bootUp();
-app.configure(function() {
-    app.set('port', port);
-    app.use(express.bodyParser());
-});
+var bodyParser = require('body-parser');
+app.use(bodyParser.json({limit: "50mb"}));
+app.use(bodyParser.urlencoded({limit: "50mb", extended: true, parameterLimit:50000}));
 
 process.on('uncaughtException', function (err) {
     console.log(err);
@@ -265,7 +265,22 @@ app.post('/collection/:id/analyze', async function (req, res) {
 });
 
 app.post('/collection/:id/update', async function (req, res) {
+    res.setHeader('Access-Control-Allow-Origin', 'http://msm.dd:8083');
+    res.setHeader('Access-Control-Allow-Methods', 'POST');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
     let result = await collectionProvider.save(req.params.id, req.body);
+    res.send(result);
+});
+app.post('/collection/:id/schema', async function (req, res) {
+    res.setHeader('Access-Control-Allow-Origin', 'http://msm.dd:8083');
+    res.setHeader('Access-Control-Allow-Methods', 'POST');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+    var collection = await collectionProvider.findOne({_id:req.params.id}, {schema:1});
+    var schema = require('./schema');
+    var newSchema = _.merge(collection.schema, req.body);
+    let result = await collectionProvider.save(req.params.id, { '$set': {
+        schema: newSchema
+    }});
     res.send(result);
 });
 
@@ -398,6 +413,8 @@ app.get('/restart', function (req, res) {
     res.send({ok: 1});
     process.exit(1);
 });
+
+app.use("/msm/msm.js", express.static(__dirname + '/msm.js'));
 
 io.on('connect', (socket) => {
     io.emit('textMessage', 'Connected from: ' + socket.client.conn.remoteAddress);

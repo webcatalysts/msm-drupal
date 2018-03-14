@@ -1,6 +1,7 @@
 <?php
 
 function msm_schema_form($form, &$form_state, array $collection) {
+  return msm_schema_table_form($form, $form_state, $collection);
   $module_path = drupal_get_path('module', 'msm');
   $form['#attached']['css'] = array(
     $module_path . '/css/schema-form.css',
@@ -461,4 +462,79 @@ function msm_schema_validate_integer(&$element, &$form_state) {
   $parents = $element['#parents'];
   $value =& drupal_array_get_nested_value($form_state['values'], $parents);
   $value = (int)$value;
+}
+
+function msm_schema_table_form($form, &$form_state, array $collection) {
+  $form['#theme'] = 'msm_schema_table_form';
+  $html_id = drupal_html_id(__FUNCTION__);
+  $form['#prefix'] = sprintf('<div id="%s">', $html_id);
+  $form['fields'] = array(
+    '#tree' => TRUE,
+    '#attributes' => array('id' => drupal_html_id(sprintf('%s-fields', $html_id))),
+  );
+  $fields = msm_schema_flatten_fields($collection['schema'], MSM_SCHEMA_FLATTEN_ALL);
+  //$parent_options = msm_schema_field_options($collection['schema'], MSM_SCHEMA_FLATTEN_GROUPS);
+  $ajax = array(
+  );
+  foreach ($fields AS $f => $field_info) {
+    $parts = explode('.', $f);
+    $field_info += array(
+      'local_name' => array_pop($parts),
+      'parent' => implode('.', $parts),
+      'weight' => 0,
+      'depth' => count($parts),
+    );
+    $form['fields'][$f] = array(
+      '#tree' => TRUE,
+      '#field_info' => $field_info,
+    );
+    $form['fields'][$f]['depth'] = array(
+      '#type' => 'value',
+      '#value' => $field_info['depth'],
+    );
+    $form['fields'][$f]['parent'] = array(
+      '#attributes' => array(
+        'class' => array(
+          'field-parent',
+        ),
+      ),
+      '#type' => 'hidden',
+      //'#options' => array(t('-- root --')) + $parent_options,
+      '#value' => $field_info['parent'],
+    );
+    $form['fields'][$f]['full_name'] = array(
+      '#type' => 'hidden',
+      '#value' => $f,
+      '#attributes' => array(
+        'class' => array('field-full-name'),
+      ),
+    );
+    $form['fields'][$f]['name'] = array(
+      '#title' => t('Title'),
+      '#title_display' => 'invisible',
+      '#type' => 'textfield',
+      '#size' => 30,
+      '#default_value' => empty($field_info['name']) ? $field_info['local_name'] : $field_info['name'],
+    );
+    $weights = range(-100, 100);
+    $form['fields'][$f]['weight'] = array(
+      '#title' => t('Weight'),
+      '#title_display' => 'invisible',
+      '#type' => 'select',
+      '#options' => array_combine($weights, $weights),
+      '#default_value' => $field_info['weight'],
+      '#chosen' => FALSE,
+      '#attributes' => array(
+        'class' => array(
+          'field-weight',
+        ),
+      ),
+    );
+    $form['selection'][$f] = array(
+      '#type' => 'checkbox',
+      '#title' => $f,
+      '$ajax' => $ajax,
+    );
+  }
+  return $form;
 }

@@ -27,6 +27,8 @@ function msm_menu() {
     'page callback' => 'msm_status_page',
     'access arguments' => array('administer msm'),
     'weight' => 100,
+    'file path' => $inc_path,
+    'file' => 'pages.inc',
   );
   $items['admin/msm/tests'] = array(
     'title' => 'Tests',
@@ -44,6 +46,8 @@ function msm_menu() {
     'page arguments' => array('msm_settings_form'),
     'access arguments' => array('administer msm'),
     'weight' => 99,
+    'file path' => $inc_path,
+    'file' => 'pages.inc',
   );
   $items['admin/msm/col'] = array(
     'title' => 'Collections',
@@ -241,7 +245,8 @@ function msm_menu() {
   $items['admin/msm/db'] = array(
     'title' => 'Databases',
     'description' => 'Manage the available databases.',
-    'page callback' => 'msm_database_list',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('msm_database_list'),
     'access arguments' => array('administer msm'),
     'file path' => $inc_path,
     'file' => 'database.inc',
@@ -336,6 +341,10 @@ function msm_theme() {
       'file' => 'msm.theme.inc',
       'render element' => 'form',
     ),
+    'msm_schema_table_form' => array(
+      'file' => 'msm.theme.inc',
+      'render element' => 'form',
+    ),
     'msm_group_schema_table' => array(
       'file' => 'msm.theme.inc',
       'render element' => 'form',
@@ -378,61 +387,10 @@ function msm_collection_load($id) {
   return empty($result['_id']) ? FALSE : $result;
 }
 
-function msm_status_page() {
-  $build = array();
-  $result = msm_request('status');
-  $header = array(t('Service'), t('Status'));
-  $rows = array();
-  if ($result === NULL) {
-    $rows[0] = array(t('API Server'), t('Not responding'));
-    $rows[1] = array(t('Database Server'), t('Unknown'));
-  }
-  elseif($result['ok'] !== 1) {
-    $rows[0] = array(t('API Server'), t('Not responding'));
-    $rows[1] = array(t('Database Server'), t('Unknown'));
-  }
-  else {
-    $rows[0] = array(t('Express API Server'), t('Running'));
-    $rows[1] = array(t('MongoDB Database Server'), t('Running'));
-    $rows[0][] = variable_get('msm_host', 'http://127.0.0.1:3000');
-    $rows[1][] = sprintf('%s (version %s)', $result['host'], $result['version']);
-    $header[] = t('Host');
-    dsm($result);
-    $build['database'] = array(
-      '#prefix' => sprintf('<h3>%s</h3>', t('Database Info')),
-      '#theme' => 'table',
-      '#rows' => array(
-        array('Host:', $result['host']),
-        array('Version:', $result['version']),
-        array('Process:', $result['process']),
-        array('Pid:', $result['pid']),
-        array('Uptime:', $result['uptime']),
-        array('Local time:', $result['localTime'])
-      ),
-    );
-    $build['connections'] = array(
-      '#prefix' => sprintf('<h3>%s</h3>', t('Database Connections')),
-      '#theme' => 'table',
-      '#rows' => array(
-        array('Current:', $result['connections']['current']),
-        array('Available:', $result['connections']['available']),
-        array('Total created:', $result['connections']['totalCreated']),
-      ),
-    );
-  }
-  $build['status'] = array(
-    '#theme' => 'table',
-    '#header' => $header,
-    '#rows' => $rows,
-    '#weight' => -100,
-  );
-  return $build;
-}
-
-function msm_database_options() {
+function msm_database_options($server_id = 'default', $client_id = 'default') {
   $options = &drupal_static(__FUNCTION__);
   if (!isset($options)) {
-    $result = msm_request('databases');
+    $result = msm_get('databases', array(), $server_id, $client_id);
     $options = array();
     foreach ($result AS $db) {
       if ($db['enabled']) {
@@ -719,60 +677,4 @@ function msm_setting_set($name, $value) {
   $result = msm_post(sprintf('setting/%s', $name), $value);
   dsm($result);
   drupal_static_reset('msm_settings');
-}
-
-function msm_settings_form($form, &$form_state, $settings = NULL) {
-  if (!empty($form_state['values']['settings'])) {
-    $settings = $form_state['values']['settings'];
-  }
-  elseif ($settings === NULL) {
-    $settings = msm_request('settings');
-  }
-  $form['settings'] = array(
-    '#tree' => TRUE,
-  );
-  $settings += array(
-    'evalonboot' => NULL,
-    'collectionpreprocess' => NULL,
-    'collectionpostprocess' => NULL,
-  );
-  $form['settings']['evalonboot'] = array(
-    '#title' => t('On Bootup'),
-    '#type' => 'text_format',
-    '#format' => 'catalyst_js',
-    '#default_value' => $settings['evalonboot'],
-    '#element_validate' => array('msm_text_format_validate'),
-    '#after_build' => array('msm_text_format_after_build'),
-    '#rows' => 30,
-  );
-  $form['settings']['collectionpreprocess'] = array(
-    '#title' => t('Collection PreProcess'),
-    '#type' => 'text_format',
-    '#format' => 'catalyst_js',
-    '#default_value' => $settings['collectionpreprocess'],
-    '#element_validate' => array('msm_text_format_validate'),
-    '#after_build' => array('msm_text_format_after_build'),
-    '#rows' => 30,
-  );
-  $form['settings']['collectionpostprocess'] = array(
-    '#title' => t('Collection PostProcess'),
-    '#type' => 'text_format',
-    '#format' => 'catalyst_js',
-    '#default_value' => $settings['collectionpostprocess'],
-    '#element_validate' => array('msm_text_format_validate'),
-    '#after_build' => array('msm_text_format_after_build'),
-    '#rows' => 30,
-  );
-  $form['actions'] = array('#type' => 'actions');
-  $form['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Update System Settings'),
-  );
-  return $form;
-}
-
-function msm_settings_form_submit($form, &$form_state) {
-  dsm($form_state);
-  $result = msm_post('settings', $form_state['values']['settings']);
-  sleep(1);
 }

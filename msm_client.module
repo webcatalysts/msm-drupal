@@ -1,28 +1,67 @@
 <?php
 
-function msm_request($path) {
-  $store = &drupal_static(__FUNCTION__);
-  if (!isset($store)) {
-    $store = array();
+function msm_request($path, $query = array(), $method = 'get', $server_id = 'default', $client_id = 'default') {
+  $methods = array(
+    'get' => 'msm_get',
+    'post' => 'msm_post',
+    'put' => 'msm_put',
+    'delete' => 'msm_delete',
+  );
+  if (!array_key_exists($method, $methods)) {
+    throw new Exception(t('Unknown method: @method', array('@method' => $method)));
   }
-  if (!isset($store[$path])) {
-    $result = file_get_contents(msm_url($path));
-    $json = json_decode($result, TRUE);
-    if ($json === NULL) {
-      throw new Exception(t('MSM request failed to decode JSON from: @path', array('@path' => $path)));
-    }
-    $store[$path] = $json;
+  $callback = $methods[$method];
+  switch ($method) {
+    case 'delete':
+      return $callback($path, $client, $server_id, $client_id);
+    default:
+      return $callback($path, $query, $client, $server_id, $client_id);
   }
-  return $store[$path];
 }
 
-function msm_url($path) {
+function msm_get($path, $query = array(), $server_id = 'default', $client_id = 'default') {
   $args = func_get_args();
-  if (count($args) > 1) {
-    $path = call_user_func_array('sprintf', $args);
+  $result = file_get_contents(msm_url($path, $query, $server_id, $client_id));
+  $json = json_decode($result, TRUE);
+  if ($json === NULL) {
+    throw new Exception(t('MSM request failed to decode JSON from: @path', array('@path' => $path)));
   }
-  if (strpos($path, '/') !== 0) $path = '/' . $path;
-  return variable_get('msm_host', 'http://127.0.0.1:3000') . $path;
+  return $json;
+}
+
+function msm_url($path, $query = array(), $server_id = 'default', $client_id = 'default') {
+  return msm_client_server_url($path, $query, $server_id, $client_id);
+}
+
+function msm_client_server_url($path, $query = array(), $server_id = 'default', $client_id = 'default') {
+  $client_servers = msm_client_servers();
+  if (!isset($client_servers[$client_id])) {
+    throw new Exception(t('Missing or invalid client_id: @client_id', array('@client_id' => $client_id)));
+  }
+  if (!isset($client_servers[$client_id][$server_id])) {
+    throw new Exception(t('Missing or invalid server_id @server_id for client @client_id', array(
+      '@client_id' => $client_id,
+      '@server_id' => $server_id,
+    )));
+  }
+  $client_server = $client_servers[$client_id][$server_id];
+  $host = sprintf('http://%s:%d/v1', $client_server['client']['host'], $client_server['client']['port']);
+  return _msm_url($host, $path, $query);
+}
+
+function msm_client_url($path, $query = array(), $client_id = 'default') {
+  $client = msm_client($client_id);
+  return _msm_url($client['host'], $path, $query);
+}
+
+
+function _msm_url($host, $path, $query = array()) {
+  if (strpos($path, '/') === 0) $path = substr($path, 0, -1);
+  $host = preg_replace('/[\/]+$/', '', $host);
+  if (empty($query)) {
+    return sprintf('%s/%s', $host, $path);
+  }
+  return sprintf('%s/%s?%s', $host, $path, http_build_query($query));
 }
 
 function msm_post($path, array $data) {
@@ -47,4 +86,69 @@ function msm_post($path, array $data) {
 
 function msm_query($collection_id, array $options = array()) {
   return msm_post(sprintf('collection/%s/query', $collection_id), $options);
+}
+
+function msm_client_servers($refresh = false) {
+  $servers =& drupal_static(__FUNCTION__);
+  if (!isset($servers) || $refresh) {
+    if (!$refresh && $cache = cache_get(__FUNCTION__)) {
+      $servers = $cache->data;
+    }
+    else {
+      $servers = array();
+      $clients = msm_clients();
+      foreach (array_keys($clients) AS $client_id) {
+        if (!isset($servers[$client_id])) {
+          $servers[$client_id] = array();
+        }
+        $res = json_decode(file_get_contents(msm_client_url('servers', array(), $client_id)), TRUE);
+        foreach ($res AS $id => $server) {
+          $servers[$client_id][$id] = $server;
+        }
+      }
+      if (count($servers)) {
+        cache_set(__FUNCTION__, $servers);
+      }
+    }
+  }
+  return $servers;
+}
+
+function msm_clients() {
+  return variable_get('msm_clients', array(
+    'default' => array(
+      'host' => 'http://127.0.0.1:3000/v1',
+      'name' => 'Localhost',
+    ),
+  ));
+}
+
+function msm_client($client_id = 'default') {
+  $clients = msm_clients();
+  return isset($clients[$client_id]) ? $clients[$client_id] : null;
+}
+
+function msm_client_server($client_id = 'default', $refresh = false) {
+  $servers = msm_client_servers($client_id, $refresh);
+  if (!isset($servers[$client_id])) {
+    throw new Exception(t('Unknown or missing client_id: @client_id', array('@client_id' => $client_id)));
+  }
+  return $servers[$client_id];
+}
+
+function msm_clients_server_options() {
+  $options = array();
+  $clients = msm_clients();
+  $clients_servers = msm_client_servers();
+  foreach ($clients AS $client_id => $client) {
+    if ($client_servers = $clients_servers[$client_id]) {
+      $optgroup = check_plain($client['name']);
+      $options[$optgroup] = array();
+      foreach ($client_servers AS $server_id => $client_server) {
+        $key = sprintf('%s:%s', $client_id, $server_id);
+        $options[$optgroup][$key] = $client_server['name'];
+      }
+    }
+  }
+  return $options;
 }

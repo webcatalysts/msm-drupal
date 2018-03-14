@@ -1,15 +1,55 @@
 <?php
 
-function msm_collection_list() {
-  $collections = msm_post('collections', [
+function msm_collection_list($client_server_id = 'default:default') {
+  return drupal_get_form('msm_collection_list_form', $client_server_id);
+}
+
+function msm_collection_list_form($form, &$form_state, $client_server_id) {
+  form_load_include($form_state, 'inc', 'msm', 'includes/collection');
+  $values = empty($form_state['values']['filters']) ? array() : $form_state['values']['filters'];
+  $values += array(
+    'client_server_id' => $client_server_id,
+    'database' => null,
+  );
+  list($client_id, $server_id) = explode(':', $values['client_server_id']);
+  $html_id = drupal_html_class(__FUNCTION__);
+  $form['#prefix'] = sprintf('<div id="%s">', $html_id);
+  $form['#suffix'] = '</div>';
+  $form['filters'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('class' => array('container-inline')),
+    '#tree' => TRUE,
+  );
+  $ajax = array(
+    'callback' => 'msm_collection_list_form_ajax',
+    'wrapper' => $html_id,
+  );
+  $form['filters']['client_server_id'] = array(
+    '#title' => t('Server'),
+    '#type' => 'select',
+    '#options' => msm_clients_server_options(),
+    '#default_value' => $values['client_server_id'],
+    '#ajax' => $ajax,
+  );
+  $form['filters']['database'] = array(
+    '#title' => t('Database'),
+    '#type' => 'select',
+    '#options' => msm_database_options($server_id, $client_id),
+    '#default_value' => $values['database'],
+  );
+  $form['filters']['submit'] = array(
+    '#type' => 'button',
+    '#value' => t('Submit'),
+  );
+  $results = msm_get('collections', [
     'project' => ['name' => 1, 'database' => 1, 'collection' => 1, 'type' => 1,
       'enabled' => 1, 'source' => 1, 'dependencies' => 1, 'locked' => 1,
     ],
     'sort' => ['weight' => 1, 'name' => 1, '_id' => 1],
-  ]);
-  dsm($collections);
-  $build = array();
-  $build['list'] = array(
+  ], $server_id, $client_id);
+  dsm($results);
+  $form['server'] = array('#markup' => $values['client_server_id']);
+  $table = array(
     '#theme' => 'table',
     '#header' => array(
       t('Name'),
@@ -23,7 +63,7 @@ function msm_collection_list() {
     ),
     '#rows' => array(),
   );
-  foreach ($collections AS $col) {
+  foreach ($results['collections'] AS $col) {
     $actions = array(
       '#theme' => 'links',
       '#links' => array(),
@@ -92,7 +132,7 @@ function msm_collection_list() {
       $dependencies = render($dependencies);
     }
     $source = !empty($col['source']) ? l($col['source'], sprintf('admin/msm/col/%s', $col['source'])) : 'n/a';
-    $build['list']['#rows'][] = array(
+    $table['#rows'][] = array(
       l($col['name'], sprintf('admin/msm/col/%s', $col['_id'])),
       l($col['database'], sprintf('admin/msm/db/%s', $col['database'])),
       $col['collection'],
@@ -102,8 +142,15 @@ function msm_collection_list() {
       $dependencies,
       render($actions),
     );
+    $form['list'] = array(
+      '#markup' => render($table),
+    );
   }
-  return $build;
+  return $form;
+}
+
+function msm_collection_list_form_ajax($form, &$form_state) {
+  return $form;
 }
 
 function msm_collection_view(array $collection, array $options = array()) {

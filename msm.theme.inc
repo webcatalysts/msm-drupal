@@ -249,3 +249,34 @@ function theme_msm_info($variables) {
   }
   return theme('table', $table);
 }
+
+function theme_msm_schema_table_form(&$variables) {
+  $form = &$variables['form'];
+  $header = array(
+    t('Select'),
+    t('Parent'),
+    t('Name'),
+    t('Weight'),
+  );
+  $rows = array();
+  foreach (element_children($form['fields']) AS $f) {
+    $form_field =& $form['fields'][$f];
+    $indent = theme('indentation', array('size' => $form_field['depth']['#value']));
+    $rows[] = array(
+      'data' => array(
+        $indent . drupal_render($form['selection'][$f]),
+        drupal_render($form_field['parent']),
+        drupal_render($form_field['name']),
+        drupal_render($form_field),
+        //drupal_render($form[$f]['actions']) . drupal_render_children($form[$f]),
+      ),
+      'class' => array('draggable'),
+    );
+  }
+
+  $table = array('header' => $header, 'rows' => $rows, 'attributes' => $form['fields']['#attributes']);
+  $output =  theme('table', $table) . drupal_render_children($form);
+  drupal_add_tabledrag($table['attributes']['id'], 'match', 'parent', 'field-parent', 'field-parent', 'field-full-name');
+  drupal_add_tabledrag($table['attributes']['id'], 'order', 'sibling', 'field-weight');
+  return $output;
+}

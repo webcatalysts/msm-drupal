@@ -36,7 +36,8 @@ class CacheableImportSource extends ImportSource {
 
         if (cacheLifetime !== null && results && this.cache) {
             console.log('setting cache: ' + cacheLifetime);
-            this.cache.set(cacheKey, results, cacheLifetime, function (err) {
+            var cacheResult = JSON.parse(JSON.stringify(results));
+            await this.cache.set(cacheKey, cacheResult, cacheLifetime, function (err) {
                 if (err) throw new Error(err);
                 else console.log('cache success?!?');
             });
