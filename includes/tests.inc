@@ -14,7 +14,7 @@ function msm_tests_page() {
     ),
     '#rows' => array(),
   );
-  $tests = msm_request('tests');
+  $tests = msm_get('admin/tests');
   $counts = array('pass' => 0, 'fail' => 0, 'nr' => 0);
   foreach ($tests AS $test) {
     $actions = array();

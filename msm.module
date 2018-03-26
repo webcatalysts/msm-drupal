@@ -5,6 +5,8 @@
  * msm.module
  */
 
+define('MSM_ID_SEPARATOR', '::');
+
 
 /**
  * Implements hook_menu()
@@ -68,7 +70,7 @@ function msm_menu() {
     'file path' => $inc_path,
     'file' => 'collection.inc',
   );
-  $items['admin/msm/col/%msm_collection'] = array(
+  $items['admin/msm/col/%msm_client_server_collection'] = array(
     'title callback' => 'msm_collection_title',
     'title arguments' => array(3),
     'page callback' => 'msm_collection_view',
@@ -79,12 +81,12 @@ function msm_menu() {
     'file' => 'collection.inc',
     'menu_name' => 'management',
   );
-  $items['admin/msm/col/%msm_collection/view'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/view'] = array(
     'title' => 'View',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -100,
   );
-  $items['admin/msm/col/%msm_collection/edit'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/edit'] = array(
     'title' => 'Edit',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_form', 3),
@@ -95,7 +97,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => -91,
   );
-  $items['admin/msm/col/%msm_collection/clone'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/clone'] = array(
     'title' => 'Clone',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_clone_form', 3),
@@ -106,7 +108,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => 91,
   );
-  $items['admin/msm/col/%msm_collection/settings'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/settings'] = array(
     'title' => 'Settings',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_settings_form', 3),
@@ -117,7 +119,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => -90,
   );
-  $items['admin/msm/col/%msm_collection/tests'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/tests'] = array(
     'title' => 'Tests',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_tests_form', 3),
@@ -128,7 +130,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => -1,
   );
-  $items['admin/msm/col/%msm_collection/map-reduce'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/map-reduce'] = array(
     'title' => 'Map Reduce',
     'access callback' => 'msm_collection_access',
     'access arguments' => array(3, 'mapReduce'),
@@ -139,7 +141,7 @@ function msm_menu() {
     'file' => 'mapreduce_form.inc',
     'weight' => 0
   );
-  $items['admin/msm/col/%msm_collection/pipeline'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/pipeline'] = array(
     'title' => 'Pipeline',
     'access callback' => 'msm_collection_access',
     'access arguments' => array(3, 'pipeline'),
@@ -150,7 +152,7 @@ function msm_menu() {
     'file' => 'pipeline_form.inc',
     'weight' => 0
   );
-  $items['admin/msm/col/%msm_collection/custom'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/custom'] = array(
     'title' => 'Custom Eval',
     'access callback' => 'msm_collection_access',
     'access arguments' => array(3, 'eval'),
@@ -161,7 +163,7 @@ function msm_menu() {
     'file' => 'eval_form.inc',
     'weight' => 0
   );
-  $items['admin/msm/col/%msm_collection/schema'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/schema'] = array(
     'title' => 'Schema',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_schema_form', 3),
@@ -172,7 +174,7 @@ function msm_menu() {
     'file' => 'schema_form.inc',
     'weight' => -1,
   );
-  $items['admin/msm/col/%msm_collection/schema/view'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/schema/view'] = array(
     'title' => 'View',
     'page callback' => 'msm_collection_schema_view',
     'page arguments' => array(3),
@@ -182,12 +184,12 @@ function msm_menu() {
     'file path' => $inc_path,
     'file' => 'collection.inc',
   );
-  $items['admin/msm/col/%msm_collection/schema/edit'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/schema/edit'] = array(
     'title' => 'Edit',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -10,
   );
-  $items['admin/msm/col/%msm_collection/schema/analyze'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/schema/analyze'] = array(
     'title' => 'Analyze Schema',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_schema_analyze_form', 3),
@@ -198,7 +200,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => 10,
   );
-  $items['admin/msm/col/%msm_collection/schema/reset'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/schema/reset'] = array(
     'title' => 'Reset',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_reset_form', 3),
@@ -209,7 +211,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => 15,
   );
-  $items['admin/msm/col/%msm_collection/process'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/process'] = array(
     'title' => 'Process',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_process_form', 3),
@@ -219,7 +221,7 @@ function msm_menu() {
     'file path' => $inc_path,
     'file' => 'collection.inc',
   );
-  $items['admin/msm/col/%msm_collection/endpoint'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/endpoint'] = array(
     'title' => 'Endpoint',
     'page callback' => 'msm_collection_endpoint',
     'page arguments' => array(3),
@@ -230,7 +232,7 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => 10,
   );
-  $items['admin/msm/col/%msm_collection/delete'] = array(
+  $items['admin/msm/col/%msm_client_server_collection/delete'] = array(
     'title' => 'Delete',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('msm_collection_delete_form', 3),
@@ -382,11 +384,6 @@ function msm_database_load($id) {
   return empty($result) ? FALSE : $result;
 }
 
-function msm_collection_load($id) {
-  $result = msm_request(sprintf('collection/%s', check_plain($id)));
-  return empty($result['_id']) ? FALSE : $result;
-}
-
 function msm_database_options($server_id = 'default', $client_id = 'default') {
   $options = &drupal_static(__FUNCTION__);
   if (!isset($options)) {
@@ -423,11 +420,11 @@ function msm_collection_access($collection, $op = null) {
       case 'settings':
       case 'schema-reset':
       case 'reset':
-        return !empty($collection['schema']) && empty($collection['locked']);
+        return !empty($collection['schemaFields']) && empty($collection['locked']);
       case 'schema-edit':
       case 'schema':
       case 'endpoint':
-        return !empty($collection['schema']);
+        return !empty($collection['schemaFields']);
       case 'eval':
 	return in_array($collection['type'], ['custom', 'import']) && empty($collection['locked']);
       case 'pipeline':
@@ -435,7 +432,7 @@ function msm_collection_access($collection, $op = null) {
       case 'mapReduce':
 	return in_array($collection['type'], ['mapReduce']) && empty($collection['locked']);
       case 'process':
-	return $collection['enabled'] && !empty($collection['schema']);
+	return $collection['enabled'] && !empty($collection['schemaFields']);
       default:
 	dsm($op);
 	return FALSE;
@@ -470,14 +467,14 @@ dsm($op);
       break;
     case 'schema-reset':
     case 'reset':
-      return !empty($collection['schema']);
+      return !empty($collection['schemaFields']);
     case 'schema-analyze':
     case 'analyze':
       return !isset($collection['locked']);
     case 'settings':
-      return !empty($collection['schema']);
+      return !empty($collection['schemaFields']);
     case 'endpoint':
-      return !empty($collection['schema']) && $collection['enabled'];
+      return !empty($collection['schemaFields']) && $collection['enabled'];
   }
   return FALSE;
 }
@@ -566,23 +563,25 @@ function msm_text_format_validate(&$element, &$form_state) {
   }
 }
 
-function msm_collection_options($grouped = FALSE) {
+function msm_collection_options($server_id, $client_id, $grouped = FALSE, $database = NULL) {
   $options = &drupal_static(__FUNCTION__);
   if (!isset($options)) {
     $options = array('grouped' => array(), 'ungrouped' => array());
-    $result = msm_request('collections');
-    foreach ($result AS $col) {
+    $options = array('query' => array());
+    if ($database) $options['query']['databaseName'] = check_plain($database);
+    $result = msm_get('collections', $options, $server_id, $client_id);
+    foreach ($result['collections'] AS $col) {
       if ($col['enabled']) {
         $text = t('@title (@database:@collectionName)', array(
           '@title' => $col['name'],
-          '@database' => $col['database'],
-          '@collectionName' => $col['collection'],
+          '@database' => $col['databaseName'],
+          '@collectionName' => $col['collectionName'],
         ));
         $options['ungrouped'][$col['_id']] = $text;
-        if (!isset($options[$col['database']])) {
-          $options[$col['database']] = array();
+        if (!isset($options[$col['databaseName']])) {
+          $options[$col['databaseName']] = array();
         }
-        $options['grouped'][$col['database']][$col['_id']] = $text;
+        $options['grouped'][$col['databaseName']][$col['_id']] = $text;
       }
     }
   }
@@ -613,7 +612,7 @@ function msm_collection_info($collection, array $options = array()) {
     'schema_info' => TRUE,
   );
   $build = array();
-  $has_schema = !empty($collection['schema']);
+  $has_schema = !empty($collection['schemaFields']);
   if ($options['info']) {
     $count = msm_request(sprintf('collection/%s/count', $collection['_id']));
     $build['info'] = array(
@@ -621,8 +620,8 @@ function msm_collection_info($collection, array $options = array()) {
       '#items' => array(
         '_id' => array(t('Collection ID'), $collection['_id']),
         'name' => array(t('Name/Label'), $collection['name']),
-        'collection' => array(t('Collection Name'), $collection['collection']),
-        'database' => array(t('Database'), l($collection['database'], 'admin/msm/db/' . $collection['collection'])),
+        'collectionName' => array(t('Collection Name'), $collection['collectionName']),
+        'databaseName' => array(t('Database'), l($collection['databaseName'], 'admin/msm/db/' . $collection['collectionName'])),
         'type' => array(t('Collection Type'), $collection['type']),
         'schema' => array(t('Has Schema'), $has_schema ? t('Yes') : t('No')),
         'totalDocuments' => array(t('Total Documents:', number_format($count, 0))),
@@ -633,7 +632,7 @@ function msm_collection_info($collection, array $options = array()) {
     }
   }
   if ($options['schema_info'] && $has_schema) {
-    $fields = msm_schema_flatten_fields($collection['schema'], MSM_SCHEMA_FLATTEN_ALL);
+    $fields = msm_schema_flatten_fields($collection['schemaFields'], MSM_SCHEMA_FLATTEN_ALL);
     $build['schema_info'] = array(
       '#theme' => 'msm_info',
       '#items' => array(
@@ -677,4 +676,16 @@ function msm_setting_set($name, $value) {
   $result = msm_post(sprintf('setting/%s', $name), $value);
   dsm($result);
   drupal_static_reset('msm_settings');
+}
+
+function msm_client_server_collection_load($id) {
+  list($client_id, $server_id, $collection_id) = explode(MSM_ID_SEPARATOR, rawurldecode($id));
+  $collection = msm_get(sprintf('collection/%s', $collection_id), array(), $server_id, $client_id);
+  $collection['server_id'] = $server_id;
+  $collection['client_id'] = $client_id;
+  return $collection ? $collection : false;
+}
+
+function msm_client_server_collection_id($collection_id, $server_id = 'default', $client_id = 'default') {
+  return implode(MSM_ID_SEPARATOR, array($client_id, $server_id, $collection_id));
 }

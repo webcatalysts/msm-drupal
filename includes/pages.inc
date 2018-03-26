@@ -88,12 +88,15 @@ function msm_status_form_ajax($form, &$form_state) {
   return $form;
 }
 
-function msm_settings_form($form, &$form_state, $settings = NULL) {
-  $values = empty($form_state['values']['filters']) ? array() : $form_state['values']['filters'];
-  $values += array(
+function msm_settings_page($form, &$form_state) {
+}
+
+function msm_settings_filters($form, &$form_state) {
+  $filters = empty($form_state['values']['filters']) ? array() : $form_state['values']['filters'];
+  $filters += array(
     'client_server_id' => 'default:default',
   );
-  list($client_id, $server_id) = explode(':', $values['client_server_id']);
+  list($client_id, $server_id) = explode(':', $filters['client_server_id']);
   $html_id = drupal_html_id(__FUNCTION__);
   $ajax = array(
     'callback' => 'msm_status_form_ajax',
@@ -110,17 +113,20 @@ function msm_settings_form($form, &$form_state, $settings = NULL) {
     '#title' => t('Client/Server'),
     '#type' => 'select',
     '#options' => msm_clients_server_options(),
-    '#default_value' => $values['client_server_id'],
+    '#default_value' => $filters['client_server_id'],
     '#ajax' => $ajax,
   );
   $form['filters']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Submit'),
   );
+}
+
+function msm_settings_form($form, &$form_state, $server_id = 'default', $client_id = 'default') {
   if (!empty($form_state['values']['settings'])) {
     $settings = $form_state['values']['settings'];
   }
-  elseif ($settings === NULL) {
+  else {
     $settings = msm_get('settings', array(), $server_id, $client_id);
   }
   $form['settings'] = array(
@@ -130,6 +136,8 @@ function msm_settings_form($form, &$form_state, $settings = NULL) {
     'evalonboot' => NULL,
     'collectionpreprocess' => NULL,
     'collectionpostprocess' => NULL,
+    'collectionpreexecute' => NULL,
+    'collectionpostexecute' => NULL,
   );
   $form['settings']['evalonboot'] = array(
     '#title' => t('On Bootup'),
@@ -166,8 +174,11 @@ function msm_settings_form($form, &$form_state, $settings = NULL) {
   return $form;
 }
 
+function msm_settings_form_ajax($form, &$form_state) {
+  return $form;
+}
+
 function msm_settings_form_submit($form, &$form_state) {
-  dsm($form_state);
-  $result = msm_post('settings', $form_state['values']['settings']);
+  $result = msm_post('admin/settings', $form_state['values']['settings']);
   sleep(1);
 }

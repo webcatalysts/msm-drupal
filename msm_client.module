@@ -13,9 +13,9 @@ function msm_request($path, $query = array(), $method = 'get', $server_id = 'def
   $callback = $methods[$method];
   switch ($method) {
     case 'delete':
-      return $callback($path, $client, $server_id, $client_id);
+      return $callback($path, $client_id, $server_id, $client_id);
     default:
-      return $callback($path, $query, $client, $server_id, $client_id);
+      return $callback($path, $query, $client_id, $server_id, $client_id);
   }
 }
 
@@ -24,6 +24,7 @@ function msm_get($path, $query = array(), $server_id = 'default', $client_id = '
   $result = file_get_contents(msm_url($path, $query, $server_id, $client_id));
   $json = json_decode($result, TRUE);
   if ($json === NULL) {
+    dsm(debug_backtrace());
     throw new Exception(t('MSM request failed to decode JSON from: @path', array('@path' => $path)));
   }
   return $json;
@@ -39,6 +40,7 @@ function msm_client_server_url($path, $query = array(), $server_id = 'default', 
     throw new Exception(t('Missing or invalid client_id: @client_id', array('@client_id' => $client_id)));
   }
   if (!isset($client_servers[$client_id][$server_id])) {
+    dsm(debug_backtrace());
     throw new Exception(t('Missing or invalid server_id @server_id for client @client_id', array(
       '@client_id' => $client_id,
       '@server_id' => $server_id,
@@ -64,15 +66,29 @@ function _msm_url($host, $path, $query = array()) {
   return sprintf('%s/%s?%s', $host, $path, http_build_query($query));
 }
 
-function msm_post($path, array $data) {
+function msm_post($path, array $data, $server_id = 'default', $client_id = 'default') {
+  return _msm_post($path, $data, 'POST', $server_id, $client_id);
+}
+
+function msm_delete($path, $data, $server_id = 'default', $client_id = 'default') {
+  return _msm_post($path, $data, 'DELETE', $server_id, $client_id);
+}
+
+function _msm_post($path, array $data, $method = 'POST', $server_id = 'default', $client_id = 'default') {
   $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, msm_url($path, array(), $server_id, $client_id));
   $data_string = json_encode($data);
-  curl_setopt($ch, CURLOPT_URL, msm_url($path));
-  curl_setopt($ch, CURLOPT_POST, 1);
+  if ($method == 'POST') {
+    curl_setopt($ch, CURLOPT_POST, 1);
+  }
+  else {
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+  }
   curl_setopt($ch, CURLOPT_HTTPHEADER, array(
     'Content-Type: application/json',
     'Content-Length: ' . strlen($data_string))
   );
+  dsm($data_string);
   //curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
   curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
   curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
@@ -84,8 +100,12 @@ function msm_post($path, array $data) {
   return $json;
 }
 
-function msm_query($collection_id, array $options = array()) {
-  return msm_post(sprintf('collection/%s/query', $collection_id), $options);
+function msm_put($path, array $data, $server_id = 'default', $client_id = 'default') {
+  return _msm_post($path, $data, 'PUT', $server_id, $client_id);
+}
+
+function msm_query($collection_id, array $options = array(), $server_id = 'default', $client_id = 'default') {
+  return msm_post(sprintf('collection/%s/query', $collection_id), $options, $server_id, $client_id);
 }
 
 function msm_client_servers($refresh = false) {
