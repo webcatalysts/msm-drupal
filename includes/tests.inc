@@ -10,6 +10,7 @@ function msm_tests_page() {
       'Test Database',
       'Result',
       'Error',
+      'Last',
       'Actions',
     ),
     '#rows' => array(),
@@ -29,10 +30,11 @@ function msm_tests_page() {
     }
     $row = array(
       $test['_id'],
-      $test['collection'],
-      $test['database'],
+      $test['collectionName'],
+      $test['databaseName'],
       $result,
       empty($test['error']) ? '-' : $test['error'],
+      isset($test['last']) ? $test['last'] : 'n/a',
       render($actions),
     );
     $build['table']['#rows'][] = $row;

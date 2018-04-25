@@ -132,40 +132,26 @@ function msm_settings_form($form, &$form_state, $server_id = 'default', $client_
   $form['settings'] = array(
     '#tree' => TRUE,
   );
-  $settings += array(
-    'evalonboot' => NULL,
+  $codesettings = array(
+    'evaloninit' => t('On init'),
+    'evalonready' => t('On ready'),
     'collectionpreprocess' => NULL,
     'collectionpostprocess' => NULL,
     'collectionpreexecute' => NULL,
     'collectionpostexecute' => NULL,
   );
-  $form['settings']['evalonboot'] = array(
-    '#title' => t('On Bootup'),
-    '#type' => 'text_format',
-    '#format' => 'catalyst_js',
-    '#default_value' => $settings['evalonboot'],
-    '#element_validate' => array('msm_text_format_validate'),
-    '#after_build' => array('msm_text_format_after_build'),
-    '#rows' => 30,
-  );
-  $form['settings']['collectionpreprocess'] = array(
-    '#title' => t('Collection PreProcess'),
-    '#type' => 'text_format',
-    '#format' => 'catalyst_js',
-    '#default_value' => $settings['collectionpreprocess'],
-    '#element_validate' => array('msm_text_format_validate'),
-    '#after_build' => array('msm_text_format_after_build'),
-    '#rows' => 30,
-  );
-  $form['settings']['collectionpostprocess'] = array(
-    '#title' => t('Collection PostProcess'),
-    '#type' => 'text_format',
-    '#format' => 'catalyst_js',
-    '#default_value' => $settings['collectionpostprocess'],
-    '#element_validate' => array('msm_text_format_validate'),
-    '#after_build' => array('msm_text_format_after_build'),
-    '#rows' => 30,
-  );
+  foreach ($codesettings AS $var => $label) {
+    $settings += array($var => NULL);
+    $form['settings'][$var] = array(
+      '#title' => $label,
+      '#type' => 'text_format',
+      '#format' => 'catalyst_js',
+      '#default_value' => $settings[$var],
+      '#element_validate' => array('msm_text_format_validate'),
+      '#after_build' => array('msm_text_format_after_build'),
+      '#rows' => 30,
+    );
+  }
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['submit'] = array(
     '#type' => 'submit',

@@ -47,7 +47,8 @@ function msm_client_server_url($path, $query = array(), $server_id = 'default', 
     )));
   }
   $client_server = $client_servers[$client_id][$server_id];
-  $host = sprintf('http://%s:%d/v1', $client_server['client']['host'], $client_server['client']['port']);
+  //$host = sprintf('http://%s:%d/v1', $client_server['client']['host'], $client_server['client']['port']);
+  $host = $client_server['client']['url'] . '/v1';
   return _msm_url($host, $path, $query);
 }
 
@@ -88,7 +89,6 @@ function _msm_post($path, array $data, $method = 'POST', $server_id = 'default',
     'Content-Type: application/json',
     'Content-Length: ' . strlen($data_string))
   );
-  dsm($data_string);
   //curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
   curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
   curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);

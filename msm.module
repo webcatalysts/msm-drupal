@@ -211,16 +211,6 @@ function msm_menu() {
     'file' => 'collection.inc',
     'weight' => 15,
   );
-  $items['admin/msm/col/%msm_client_server_collection/process'] = array(
-    'title' => 'Process',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('msm_collection_process_form', 3),
-    'access callback' => 'msm_collection_access',
-    'access arguments' => array(3, 'process'),
-    'type' => MENU_LOCAL_TASK,
-    'file path' => $inc_path,
-    'file' => 'collection.inc',
-  );
   $items['admin/msm/col/%msm_client_server_collection/endpoint'] = array(
     'title' => 'Endpoint',
     'page callback' => 'msm_collection_endpoint',
@@ -332,6 +322,7 @@ function msm_theme() {
         'schema_info' => array(),
         'schema' => array(),
         'test_result' => array(),
+        'unlock_form' => '',
       ),
       'path' => $path,
     ),
@@ -679,11 +670,16 @@ function msm_setting_set($name, $value) {
 }
 
 function msm_client_server_collection_load($id) {
-  list($client_id, $server_id, $collection_id) = explode(MSM_ID_SEPARATOR, rawurldecode($id));
-  $collection = msm_get(sprintf('collection/%s', $collection_id), array(), $server_id, $client_id);
-  $collection['server_id'] = $server_id;
-  $collection['client_id'] = $client_id;
-  return $collection ? $collection : false;
+  $loaded =& drupal_static(__FUNCTION__);
+  if (!isset($loaded)) $loaded = array();
+  if (!isset($loaded[$id])) {
+    list($client_id, $server_id, $collection_id) = explode(MSM_ID_SEPARATOR, rawurldecode($id));
+    if ($loaded[$id] = msm_get(sprintf('collection/%s', $collection_id), array(), $server_id, $client_id)) {
+      $loaded[$id]['server_id'] = $server_id;
+      $loaded[$id]['client_id'] = $client_id;
+    }
+  }
+  return $loaded[$id] ? $loaded[$id] : false;
 }
 
 function msm_client_server_collection_id($collection_id, $server_id = 'default', $client_id = 'default') {

@@ -15,4 +15,5 @@
   <?php endif; ?>
     <?php print render($test_result); ?>
   <?php print render($schema); ?>
+  <?php print render($unlock_form); ?>
 </div>

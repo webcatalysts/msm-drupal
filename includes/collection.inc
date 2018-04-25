@@ -124,14 +124,20 @@ function msm_collection_list_form($form, &$form_state, $client_server_id) {
         '#links' => array(),
       );
       foreach ($col['dependencies'] AS $dep) {
+        $dep_id = msm_client_server_collection_id($dep, $server_id, $client_id);
         $dependencies['#links'][] = array(
           'title' => $dep,
-          'href' => sprintf('admin/msm/col/%s', $dep),
+          'href' => sprintf('admin/msm/col/%s', $dep_id),
         );
       }
       $dependencies = render($dependencies);
     }
-    $source = !empty($col['source']) ? l($col['source'], sprintf('admin/msm/col/%s', $col['source'])) : 'n/a';
+    if (!empty($col['source'])) {
+      $source_id =  msm_client_server_collection_id($col['source'], $server_id, $client_id);
+      $source = l($col['source'], sprintf('admin/msm/col/%s', $source_id));
+    }
+    else $source = 'n/a';
+
     $table['#rows'][] = array(
       l($col['name'], sprintf('admin/msm/col/%s', $id)),
       l($col['databaseName'], sprintf('admin/msm/db/%s', $col['databaseName'])),
@@ -154,7 +160,6 @@ function msm_collection_list_form_ajax($form, &$form_state) {
 }
 
 function msm_collection_view(array $collection, array $options = array()) {
-  dsm($collection);
   $options += array(
     'info' => TRUE,
     'schema_info' => TRUE,
@@ -165,7 +170,7 @@ function msm_collection_view(array $collection, array $options = array()) {
   $build = array(
     '#theme' => 'msm_collection_view',
   );
-  $has_schema = !empty($collection['schema']);
+  $has_schema = !empty($collection['schemaFields']);
   if ($options['info']) {
     $count = msm_get(sprintf('collection/%s/count', $collection['_id']));
     if ($count['ok']) {
@@ -210,7 +215,7 @@ function msm_collection_view(array $collection, array $options = array()) {
     $build['#info']['#items']['averageSeconds'] = array(t('Average processing time:'), number_format($collection['millisProcessed']/$collection['timesProcessed']/1000, 2) . ' seconds');
   }
   if ($options['schema_info'] && $has_schema) {
-    $fields = msm_schema_flatten_fields($collection['schema'], MSM_SCHEMA_FLATTEN_ALL);
+    $fields = msm_schema_flatten_fields($collection['schemaFields'], MSM_SCHEMA_FLATTEN_ALL);
     $build['#schema_info'] = array(
       '#theme' => 'msm_info',
       '#title' => t('Schema breakdown'),
@@ -264,6 +269,9 @@ function msm_collection_view(array $collection, array $options = array()) {
         $build['#test_result']['#items']['error'] = array(t('Error'), $test['error']);
       }
     }
+  }
+  if ($collection['locked'] && variable_get('msm_allow_unlock', TRUE)) {
+    $build['#unlock_form'] = drupal_get_form('msm_collection_unlock_form', $collection);
   }
   return $build;
 }
@@ -447,14 +455,12 @@ function msm_collection_form_submit($form, &$form_state) {
   $document = $form_state['document'];
   list($client_id, $server_id) = explode(':', $document['client_server_id']);
   unset($document['client_server_id']);
-  dsm($document);
   $id = msm_client_server_collection_id($form_state['collection_id'], $server_id, $client_id);
   if ($form['#is_new']) {
     $result = msm_put(sprintf('admin/collection/%s', $form_state['collection_id']), $document, $server_id, $client_id);
   }
   else {
-    //$result = msm_post(sprintf('admin/collection/%s', $form_state['collection_id']), ['$set' => $document], $server_id, $client_id);
-    $result = msm_post(sprintf('admin/collection/%s', $form_state['collection_id']), $document, $server_id, $client_id);
+    $result = msm_post(sprintf('admin/collection/%s', $form_state['collection_id']), ['$set' => $document], $server_id, $client_id);
   }
   if (!$result['ok']) {
     $result = (array)$result;
@@ -839,7 +845,8 @@ function msm_collection_settings_form_submit($form, &$form_state) {
     ),
     '$unset' => array(),
   );
-  $collectionId = $form['#collection']['_id'];
+  $collection = $form['#collection'];
+  $collectionId = $collection['_id'];
   foreach ($fields AS $f) {
     if (empty($values[$f])) {
       $update['$unset'][$f] = "";
@@ -849,9 +856,10 @@ function msm_collection_settings_form_submit($form, &$form_state) {
   if (empty($update['$unset'])) {
     unset($update['$unset']);
   }
-  $result = msm_post(sprintf('collection/%s/update', $collectionId), $update);
+    unset($update['$unset']);
+  $result = msm_post(sprintf('admin/collection/%s', $collectionId), $update, $collection['server_id'], $collection['client_id']);
   if ($result['ok']) {
-    $form_state['redirect'] = sprintf('admin/msm/col/%s/view', $collectionId);
+    $form_state['redirect'] = sprintf('admin/msm/col/%s/view', msm_client_server_collection_id($collectionId, $collection['server_id'], $collection['client_id']));
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
 }
@@ -874,7 +882,6 @@ function msm_collection_endpoint_form($form, &$form_state, array $collection) {
     'array_item_limit' => 3,
   );
   $result = msm_get(sprintf('collection/%s/query', $collection['_id']), $params);
-  dsm($result);
   $html_id = drupal_html_class(__FUNCTION__);
   $form['#prefix'] = sprintf('<div id="%s">', $html_id);
   $form['#suffix'] = '</div>';
@@ -929,7 +936,6 @@ function msm_collection_endpoint_form($form, &$form_state, array $collection) {
     '#type' => 'textfield',
     '#default_value' => $params['options']['array_item_limit'],
   );
-dsm($params['options']);
   if (!empty($result['results'][0])) {
     $form['result'] = array(
       '#markup' => theme('msm_schema_result_tree', array(
@@ -1023,12 +1029,12 @@ function msm_collection_reset_form_submit($form, &$form_state) {
   $collection = $form['#collection'];
   $update = array(
     '$set' => array('enabled' => false),
-    '$unset' => array('schema' => '', 'schemaImported' => '', 'analyzingSchema' => ''),
+    '$unset' => array('schemaFields' => '', 'schemaImported' => '', 'analyzingSchema' => ''),
   );
-  $result = msm_post(sprintf('collection/%s/update', $collection['_id']), $update);
+  $result = msm_post(sprintf('admin/collection/%s', $collection['_id']), $update, $collection['server_id'], $collection['client_id']);
   if ($result['ok']) {
     drupal_set_message(t('The schema is being reset. Refresh the page momentarily as necessary.'));
-    $form_state['redirect'] = sprintf('admin/msm/col/%s/schema/analyze', $collection['_id']);
+    $form_state['redirect'] = sprintf('admin/msm/col/%s/schema/analyze', msm_client_server_collection_id($collection['_id'], $collection['server_id'], $collection['client_id']));
   }
   else form_set_error('', t('An error has occured: @error', array('@error' => $result['error'])));
 }
@@ -1076,16 +1082,18 @@ function msm_collection_schema_analyze_form($form, &$form_state, array $collecti
 function msm_collection_schema_analyze_form_submit($form, &$form_state) {
   $collection = $form['#collection'];
   $options = array('limit' => $form_state['values']['limit']);
-  $result = msm_post(sprintf('collection/%s/analyze', $collection['_id']), $options);
-  $form_state['redirect'] = sprintf('admin/msm/col/%s/schema/view', $collection['_id']);
+  $result = msm_post(sprintf('admin/collection/%s/analyze', $collection['_id']), $options, $collection['server_id'], $collection['client_id']);
+  $form_state['redirect'] = sprintf('admin/msm/col/%s/schema/view', msm_client_server_collection_id($collection['_id'], $collection['server_id'], $collection['client_id']));
   drupal_set_message(t('The schema is being analyzed. Refresh the page momentarily as necessary.'));
 }
 
 function msm_collection_tests_form($form, &$form_state, $collection) {
   $form['#collection_id'] = $collection['_id'];
+  $form['#client_id'] = $collection['client_id'];
+  $form['#server_id'] = $collection['server_id'];
   if (empty($form_state['values']['test'])) {
     try {
-      $test = msm_get(sprintf('collection/%s/test', $collection['_id']));
+      $test = msm_get(sprintf('collection/%s/test', $collection['_id']), array(), $form['#server_id'], $form['#client_id']);
     }
     catch (Exception $e) {
       $test = array();
@@ -1103,8 +1111,7 @@ function msm_collection_tests_form($form, &$form_state, $collection) {
   $test['units'][0] += array(
     'code' => "let count = await col.count();\nassert(count, 'Collection is empty');",
   );
-
-  if ($test['last']) {
+  if (isset($test['last']) && $test['last']) {
     $form['result'] = array(
       '#type' => 'markup',
       '#markup' => theme('table', array(
@@ -1176,17 +1183,23 @@ function msm_collection_tests_form_submit($form, &$form_state) {
     'code' => $test['code'],
   ));
   unset($test['code']);
-  $result = msm_post(sprintf('colelction/%s/test', $test['_id']), $test);
+  $result = msm_post(sprintf('admin/collection/%s/test', $test['_id']), $test, $form['#server_id'], $form['#client_id']);
   if ($result['ok']) {
     $options = $form_state['values']['options'];
     if ($options['run_test']) {
-      $testresult = msm_get(sprintf('collection/%s/run-test', $test['_id']));
+      $testresult = msm_get(sprintf('admin/collection/%s/test/run', $test['_id']), array(), $form['#server_id'], $form['#client_id']);
       if ($testresult['result']['pass'] && $options['lock']) {
-        $res2 = msm_post(sprintf('collection/%s/update', $form['#collection_id']), [
+        $res2 = msm_post(sprintf('admin/collection/%s', $form['#collection_id']), [
           '$set' => ['locked' => TRUE]
-        ]);
+        ], $form['#server_id'], $form['#client_id']);
         if (!$res2['ok']) {
           form_set_error('', t('An error has occured: @error', array('@error' => $res2['error'])));
+        }
+        else {
+          drupal_set_message(t('The test for @colname passed. The collection has been locked.', array(
+            '@colname' => $test['_id'],
+          )));
+          $form_state['redirect'] = 'admin/msm/col';
         }
       }
     }
@@ -1199,5 +1212,25 @@ function msm_collection_test_load($collection_id) {
   }
   catch (Exception $e) {
     return null;
+  }
+}
+
+function msm_collection_unlock_form($form, &$form_state, $collection) {
+  $form['#collectionId'] = $collection['_id'];
+  $form['#client_id'] = $collection['client_id'];
+  $form['#server_id'] = $collection['server_id'];
+  $form['unlock'] = array(
+    '#type' => 'submit',
+    '#value' => t('Unlock collection'),
+  );
+  return $form;
+}
+
+function msm_collection_unlock_form_submit($form, &$form_state) {
+  $result = msm_post(sprintf('admin/collection/%s', $form['#collectionId']), ['$unset' => ['locked' => null]], $form['#server_id'], $form['#client_id']);
+  if (!$result['ok']) {
+    $result = (array)$result;
+    $result += array('error' => t('No further information to display.'));
+    form_set_error('', t('An error occurred while attempting to save the collection: @err.', array('@err' => $result['error'])));
   }
 }

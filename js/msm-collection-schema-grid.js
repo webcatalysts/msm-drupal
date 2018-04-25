@@ -45,6 +45,15 @@
             editable: true,
             width: 150,
           },
+          {
+            field: 'type',
+            headerName: Drupal.t('Type'),
+          },
+          {
+            field: 'usage',
+            headerName: Drupal.t('Usage'),
+            type: 'numericColumn',
+          },
           { headerName: Drupal.t('Abbreviation'),
             field: 'display.abbreviation', editable: true, width: 80 },
           { headerName: Drupal.t('Description'),
@@ -118,6 +127,7 @@
       this.refresh();
     },
     processSchema: function (schema, ns = null, rowData = null) {
+      console.log(schema);
       if (rowData === null) rowData = [];
       Object.keys(schema).forEach(function (fieldKey, idx) {
         var cns = ns ? ns + '.' + fieldKey : fieldKey;
@@ -133,6 +143,8 @@
           parentId: ns,
           parents: cns.split('.'),
           display: schemaField.display,
+          type: schemaField.type,
+          usage: schemaField.percentContaining + '%',
         });
         if (schemaField.children && Object.keys(schemaField.children).length) {
           this.processSchema(schemaField.children, cns, rowData);
@@ -178,6 +190,7 @@
         success: function () {
           alert('Saved!');
         },
+        error: function () { alert('save error'); }
       });
     },
     deleteRows: function () {
