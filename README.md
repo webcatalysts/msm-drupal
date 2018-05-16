@@ -1,4 +1,4 @@
-# MongoDB Schema Manager MSM
+# MongoDB Schema Manager MSM (Drupal Module)
 
 ## Installation
 
